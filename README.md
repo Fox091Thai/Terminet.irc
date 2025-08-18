@@ -21,3 +21,11 @@ set up:
 - run the server (python3 terminet_server.py)
 - Access it at:Login/Register → http://[your ip]:5000/ (if you set it currectly)
 
+
+about bug:
+- Please expect the bug and mess up code.
+
+
+Disclaimer 
+- Please be aware that this projecr is mostly AI assisted. so security might be kinda questionable.
+- please do not turn this into tech drama or eles 😭
