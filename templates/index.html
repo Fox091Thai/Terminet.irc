@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Terminet IRC</title>
+    <style>
+        body {
+            background-color: rgb(24, 24, 24);
+            color: #e5ae73;
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .logo {
+            font-size: 20px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-style: italic;
+            text-align: center;
+            margin-bottom: 20px;
+            letter-spacing: 4px;
+        }
+
+        .mini-motto {
+            font-size: 15px;
+            font-family: 'Courier New', monospace;
+            font-style: italic;
+            text-align: center;
+            margin-bottom: 20px;
+            letter-spacing: 4px;
+        }
+
+        .motto {
+            font-size: 18px;
+            text-align: center;
+            margin-bottom: 40px;
+            height: 25px;
+            font-style: italic;
+        }
+
+        .motto-text {
+            opacity: 0;
+            animation: fadeInOut 5s infinite;
+        }
+
+        @keyframes fadeInOut {
+            0% {
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 1;
+            }
+
+            90% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        .auth-container {
+            border: 2px solid #e5ae73;
+            padding: 30px;
+            background: black;
+            min-width: 350px;
+        }
+
+        .auth-form h2 {
+            margin-top: 0;
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            width: 100%;
+            background: black;
+            color: #e5ae73;
+            border: 1px solid #e5ae73;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #e5ae73;
+        }
+
+        button {
+            width: 100%;
+            background: #e5ae73;
+            color: black;
+            border: none;
+            padding: 12px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        button:hover {
+            background: #d19960;
+        }
+
+        .switch-btn {
+            background: transparent;
+            color: #e5ae73;
+            border: 1px solid #e5ae73;
+        }
+
+        .switch-btn:hover {
+            background: #e5ae73;
+            color: black;
+        }
+
+        .success-message {
+            background: #e5ae73;
+            color: black;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .error-message {
+            background: #ff6b6b;
+            color: white;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .unique-code {
+            font-family: 'Courier New', monospace;
+            font-size: 18px;
+            letter-spacing: 2px;
+            padding: 10px;
+            background: rgb(255, 0, 0);
+            border: 1px solid #e5ae73;
+            text-align: center;
+            margin: 10px 0;
+            user-select: all;
+        }
+
+        .ascii-art {
+            font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+            font-size: 16px;
+            /* Adjust this to make it smaller */
+            color: rgb(229, 174, 115);
+            text-align: center;
+            margin: 9px 0;
+            line-height: 1;
+            white-space: pre;
+            overflow: hidden;
+        }
+
+        .motto-text {
+            font-family: "terminal", "Courier New", monospace;
+        }
+
+        @keyframes marquee {
+            0% {
+                transform: translateX(100%);
+            }
+
+            100% {
+                transform: translateX(-100%);
+            }
+        }
+
+        html::before {
+            content: "";
+            display: block;
+            position: fixed;
+            /* stays in place while scrolling */
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background:
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%;
+            /* repeats endlessly */
+            z-index: 9999;
+            pointer-events: none;
+            /* allow clicking through */
+        }
+    </style>
+</head>
+
+<body>
+    <div class="ascii-art">
+ /$$$$$$$$ /$$$$$$$$ /$$$$$$$  /$$      /$$ /$$$$$$ /$$   /$$ /$$$$$$$$ /$$$$$$$$                 /$$$$$$ /$$$$$$$   /$$$$$$ 
+|__  $$__/| $$_____/| $$__  $$| $$$    /$$$|_  $$_/| $$$ | $$| $$_____/|__  $$__/                |_  $$_/| $$__  $$ /$$__  $$
+   | $$   | $$      | $$  \ $$| $$$$  /$$$$  | $$  | $$$$| $$| $$         | $$                     | $$  | $$  \ $$| $$  \__/
+   | $$   | $$$$$   | $$$$$$$/| $$ $$/$$ $$  | $$  | $$ $$ $$| $$$$$      | $$                     | $$  | $$$$$$$/| $$      
+   | $$   | $$__/   | $$__  $$| $$  $$$| $$  | $$  | $$  $$$$| $$__/      | $$                     | $$  | $$__  $$| $$      
+   | $$   | $$      | $$  \ $$| $$\  $ | $$  | $$  | $$\  $$$| $$         | $$                     | $$  | $$  \ $$| $$    $$
+   | $$   | $$$$$$$$| $$  | $$| $$ \/  | $$ /$$$$$$| $$ \  $$| $$$$$$$$   | $$          /$$       /$$$$$$| $$  | $$|  $$$$$$/
+   |__/   |________/|__/  |__/|__/     |__/|______/|__/  \__/|________/   |__/         |__/      |______/|__/  |__/ \______/ 
+                                                                                                                             
+                                                                                                                             
+                                                                                                                             
+
+    </div>
+    <div class="logo">By Fox091Thai</div>
+    <div class="mini-motto">"Message of the dark. If it work, it's a miracle."</div>
+    <div class="auth-container">
+        <!-- Registration Form -->
+        <div id="register-form" class="auth-form">
+            <h2>CREATE ACCOUNT</h2>
+            <div id="register-success" class="success-message hidden">
+                <div>Account created successfully!</div>
+                <div>Your unique login code:</div>
+                <div class="unique-code" id="unique-code"></div>
+                <div>Save this code - you'll need it to login! DO NOT LOST IT.</div>
+                <div>There is no way to recovery it. i don't know where is it in DB either</div>
+            </div>
+            <div id="register-error" class="error-message hidden"></div>
+            <div id="register-fields">
+                <div class="form-group">
+                    <label>Username:</label>
+                    <input type="text" id="reg-username" maxlength="20" required>
+                </div>
+                <div class="form-group">
+                    <label>Password:</label>
+                    <input type="password" id="reg-password" required>
+                </div>
+                <button onclick="register()">CREATE ACCOUNT</button>
+            </div>
+            <button class="switch-btn" onclick="switchToLogin()">Already have account? LOGIN</button>
+        </div>
+
+        <!-- Login Form -->
+        <div id="login-form" class="auth-form hidden">
+            <h2>LOGIN</h2>
+            <div id="login-error" class="error-message hidden"></div>
+            <div class="form-group">
+                <label>Unique Code:</label>
+                <input type="text" id="login-code" maxlength="8" required>
+            </div>
+            <div class="form-group">
+                <label>Password:</label>
+                <input type="password" id="login-password" required>
+            </div>
+            <button onclick="login()">LOGIN</button>
+            <button class="switch-btn" onclick="switchToRegister()">Need account? REGISTER</button>
+        </div>
+    </div>
+
+    <script>
+        
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function () {
+            startMarquee();
+
+            // Rest of your existing DOMContentLoaded code...
+        });
+
+        // Change when marquee finishes scrolling
+        mottoElement.addEventListener('finish', cycleMotto);
+
+        // Start first motto
+        cycleMotto();
+
+        // Check if user is already logged in
+        document.addEventListener('DOMContentLoaded', function () {
+            const userData = sessionStorage.getItem('terminet_user');
+            if (userData) {
+                // User is already logged in, redirect to chat
+                window.location.href = '/chat';
+            }
+        });
+
+        function switchToLogin() {
+            document.getElementById('register-form').classList.add('hidden');
+            document.getElementById('login-form').classList.remove('hidden');
+            clearMessages();
+        }
+
+        function switchToRegister() {
+            document.getElementById('login-form').classList.add('hidden');
+            document.getElementById('register-form').classList.remove('hidden');
+            clearMessages();
+            // Hide success message when switching back
+            document.getElementById('register-success').classList.add('hidden');
+            document.getElementById('register-fields').classList.remove('hidden');
+        }
+
+        function clearMessages() {
+            document.getElementById('register-error').classList.add('hidden');
+            document.getElementById('login-error').classList.add('hidden');
+        }
+        function register() {
+            clearMessages();
+            const username = document.getElementById('reg-username').value.trim();
+            const password = document.getElementById('reg-password').value.trim();
+
+            if (!username || !password) {
+                showError('register-error', 'Username and password are required.');
+                return;
+            }
+
+            fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('register-fields').classList.add('hidden');
+                        document.getElementById('register-success').classList.remove('hidden');
+                        document.getElementById('unique-code').textContent = data.unique_code;
+                    } else {
+                        showError('register-error', data.message);
+                    }
+                })
+                .catch(error => showError('register-error', 'An error occurred. Please try again.'));
+        }
+        function login() {
+            clearMessages();
+            const uniqueCode = document.getElementById('login-code').value.trim();
+            const password = document.getElementById('login-password').value.trim();
+
+            if (!uniqueCode || !password) {
+                showError('login-error', 'Unique code and password are required.');
+                return;
+            }
+
+            fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ unique_code: uniqueCode, password })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        sessionStorage.setItem('terminet_user', JSON.stringify(data.user));
+                        window.location.href = '/chat';
+                    } else {
+                        showError('login-error', data.message);
+                    }
+                })
+                .catch(error => showError('login-error', 'An error occurred. Please try again.'));
+        }
+        function showError(elementId, message) {
+            const errorElement = document.getElementById(elementId);
+            errorElement.textContent = message;
+            errorElement.classList.remove('hidden');
+        }
+    </script>
+</body>
+
+</html>
