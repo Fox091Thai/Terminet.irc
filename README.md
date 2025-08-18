@@ -29,3 +29,7 @@ about bug:
 Disclaimer 
 - Please be aware that this projecr is mostly AI assisted. so security might be kinda questionable.
 - please do not turn this into tech drama or eles 😭
+
+
+building on hope and dream
+- Terminet.IRC : If it works, It's a Miracle.
