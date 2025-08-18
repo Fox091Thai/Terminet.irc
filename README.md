@@ -16,11 +16,4 @@ set up:
 CUSTOM_ENCRYPTION_KEY = 'replace_with_your_secure_phrase')
 - run the server (python3 terminet_server.py)
 - Access it at:Login/Register → http://[your ip]:5000/ (if you set it currectly)
-file structure
-terminet_server.py    # Main server file
-logs/                # Encrypted message logs (auto-created)
-terminet.db          # SQLite database (auto-created)
-templates/
-├── index.html        # Login/Register page
-└── IRC.html         # Chat interface
 
