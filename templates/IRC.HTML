@@ -80,6 +80,8 @@
             font-size: 12px;
             transition: background 0.2s;
             position: relative;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         .server-item:hover {
@@ -141,6 +143,8 @@
             font-size: 11px;
             border: 1px solid #666;
             position: relative;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         .room-item:hover {
@@ -219,16 +223,25 @@
         .chat-messages {
             flex: 1;
             overflow-y: auto;
+            overflow-x: hidden;
             padding: 10px 20px;
             background: black;
             font-size: 16px;
             line-height: 1.4;
             min-height: 0;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
         }
 
         .message {
             margin-bottom: 8px;
+            white-space: pre-wrap;
             word-wrap: break-word;
+            overflow-wrap: break-word;
+            max-width: 100%;
+            hyphens: auto;
+            word-break: break-word;
         }
 
         .message .timestamp {
@@ -255,6 +268,7 @@
             max-width: 100%;
             display: flex;
             justify-content: flex-start;
+            overflow: hidden;
         }
 
         .embedded-content img,
@@ -272,6 +286,59 @@
             width: 400px;
             height: 225px;
             border: 1px solid #e5ae73;
+        }
+
+        /* Custom HTML tags for messages */
+        .message b,
+        .message bold {
+            font-weight: bold;
+        }
+
+        .message big {
+            font-size: 1.2em;
+        }
+
+        .message center {
+            display: block;
+            text-align: center;
+        }
+
+        .message small {
+            font-size: 0.8em;
+        }
+
+        .message blink {
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            50% {
+                opacity: 1;
+            }
+
+            51%,
+            100% {
+                opacity: 0;
+            }
+        }
+
+        .message marquee {
+            display: block;
+            animation: marquee 10s linear infinite;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        @keyframes marquee {
+            0% {
+                transform: translateX(100%);
+            }
+
+            100% {
+                transform: translateX(-100%);
+            }
         }
 
         /* Input Area */
@@ -300,6 +367,8 @@
             max-height: 160px;
             overflow-y: auto;
             line-height: 1.4;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         .message-input::-webkit-scrollbar {
@@ -359,6 +428,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         .user-item:hover {
@@ -703,15 +774,6 @@
         let maxReconnectAttempts = 5;
         let debugMode = false;
         let roomUsers = new Set();
-        
-        // Enhanced duplicate prevention for system messages
-        let systemMessageCache = new Map();
-        const MESSAGE_CACHE_TIMEOUT = 30000; // 30 seconds
-        const MESSAGE_CACHE_SIZE = 100; // Max cache size
-
-        // Track room state
-        let lastJoinedRoom = null;
-        let userHasJoinedRoom = new Set();
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function () {
@@ -733,52 +795,7 @@
                 initializeSocket();
                 setupInputHandlers();
             }, 1000);
-
-            // Clean up message cache periodically
-            setInterval(cleanupMessageCache, MESSAGE_CACHE_TIMEOUT);
         });
-
-        function cleanupMessageCache() {
-            const now = Date.now();
-            const cutoff = now - MESSAGE_CACHE_TIMEOUT;
-            
-            for (const [key, timestamp] of systemMessageCache.entries()) {
-                if (timestamp < cutoff) {
-                    systemMessageCache.delete(key);
-                }
-            }
-
-            // Prevent cache from growing too large
-            if (systemMessageCache.size > MESSAGE_CACHE_SIZE) {
-                const entries = Array.from(systemMessageCache.entries());
-                entries.sort((a, b) => a[1] - b[1]); // Sort by timestamp
-                
-                // Keep only the newest 50 entries
-                systemMessageCache.clear();
-                entries.slice(-50).forEach(([key, timestamp]) => {
-                    systemMessageCache.set(key, timestamp);
-                });
-            }
-        }
-
-        function isDuplicateSystemMessage(data) {
-            if (data.type !== 'system') {
-                return false;
-            }
-
-            // Create a unique key based on message content and approximate time
-            const messageKey = `${data.message}_${data.timestamp}`;
-            
-            // Check if we've seen this exact message recently
-            if (systemMessageCache.has(messageKey)) {
-                console.log('Duplicate system message detected:', data.message);
-                return true;
-            }
-
-            // Add to cache
-            systemMessageCache.set(messageKey, Date.now());
-            return false;
-        }
 
         function setupInputHandlers() {
             const messageInput = document.getElementById('message-input');
@@ -892,11 +909,6 @@
                 updateConnectionStatus('disconnected');
                 updateDebugInfo();
 
-                // Clear tracking on disconnect
-                userHasJoinedRoom.clear();
-                lastJoinedRoom = null;
-                systemMessageCache.clear();
-
                 if (reason === 'io server disconnect') {
                     setTimeout(initializeSocket, 2000);
                 }
@@ -970,9 +982,6 @@
                     if (currentServer) {
                         currentServer = null;
                         currentRoom = null;
-                        userHasJoinedRoom.clear();
-                        lastJoinedRoom = null;
-                        systemMessageCache.clear();
                         showWelcomeScreen();
                     }
                 } else {
@@ -986,9 +995,6 @@
                     showNotification('Successfully left server', 'success');
                     currentServer = null;
                     currentRoom = null;
-                    userHasJoinedRoom.clear();
-                    lastJoinedRoom = null;
-                    systemMessageCache.clear();
                     showWelcomeScreen();
                     setTimeout(() => {
                         loadUserServers();
@@ -1002,13 +1008,11 @@
             socket.on('room_joined', function (data) {
                 console.log('Room joined:', data);
                 currentRoom = data.room_id;
-                lastJoinedRoom = data.room_id;
                 document.getElementById('current-room').textContent = '#' + data.room_name;
                 document.getElementById('chat-title').textContent = '#' + data.room_name;
                 updateDebugInfo();
 
                 roomUsers.clear();
-                systemMessageCache.clear(); // Clear cache when switching rooms
                 showChatContainer();
                 renderMessages(data.messages || []);
             });
@@ -1048,7 +1052,7 @@
                 }
             });
 
-            // Message events with duplicate prevention
+            // Message events
             socket.on('new_message', function (data) {
                 console.log('New message:', data);
                 addMessage(data);
@@ -1056,18 +1060,14 @@
 
             socket.on('system_message', function (data) {
                 console.log('System message received:', data);
-                
-                // Check for duplicates before adding
-                if (!isDuplicateSystemMessage(data)) {
-                    addMessage(data);
-                } else {
-                    console.log('Skipped duplicate system message:', data.message);
-                }
+                addMessage(data);
             });
 
             socket.on('users_list', function (data) {
-                console.log('Users list:', data);
-                renderUsersList(data.users || []);
+                console.log('Users list received:', data.users);
+
+                roomUsers = new Set(data.users || []);
+                renderUsersList(Array.from(roomUsers));
             });
 
             socket.on('room_error', function (data) {
@@ -1085,17 +1085,14 @@
                 showNotification('Connection error occurred', 'error');
             });
 
-            // Enhanced kick handlers
+            // Kick handlers
             socket.on('kicked_from_server_reload', function (data) {
                 console.log('Kicked from server with reload instruction:', data);
                 showNotification(data.message, 'error');
-                
+
                 currentServer = null;
                 currentRoom = null;
-                userHasJoinedRoom.clear();
-                lastJoinedRoom = null;
                 roomUsers.clear();
-                systemMessageCache.clear();
 
                 alert(`${data.message}\n\nYou will be redirected to the main screen.`);
                 showWelcomeScreen();
@@ -1111,15 +1108,16 @@
 
                 currentServer = null;
                 currentRoom = null;
-                userHasJoinedRoom.clear();
-                lastJoinedRoom = null;
                 roomUsers.clear();
-                systemMessageCache.clear();
 
                 showWelcomeScreen();
                 setTimeout(() => {
                     loadUserServers();
                 }, 1000);
+            });
+            socket.on('users_list', function (data) {
+                console.log('Users list:', data);
+                renderUsersList(data.users || []);
             });
 
             socket.on('kick_result', function (data) {
@@ -1231,13 +1229,6 @@
             document.querySelectorAll('.server-item').forEach(el => el.classList.remove('active'));
             element.classList.add('active');
 
-            // Clear room tracking when switching servers
-            if (currentServer && currentServer.id !== server.id) {
-                userHasJoinedRoom.clear();
-                lastJoinedRoom = null;
-                systemMessageCache.clear();
-            }
-
             loadServerData(server.id);
         }
 
@@ -1298,12 +1289,6 @@
         function joinRoom(roomId, roomName) {
             console.log('Joining room:', roomId, roomName);
 
-            // Only join if it's a different room
-            if (lastJoinedRoom === roomId) {
-                console.log('Already in this room, skipping join request');
-                return;
-            }
-
             if (socket && socket.connected) {
                 socket.emit('join_room', {
                     room_id: roomId,
@@ -1341,21 +1326,15 @@
             const messagesContainer = document.getElementById('chat-messages');
             messagesContainer.innerHTML = '';
             roomUsers.clear();
-            systemMessageCache.clear(); // Clear cache when rendering new message set
 
             messages.forEach(msg => {
-                addMessage(msg, true); // Skip duplicate check for initial render
+                addMessage(msg);
             });
 
             scrollToBottom();
         }
 
-        function addMessage(data, skipDuplicateCheck = false) {
-            // Check for duplicates unless explicitly skipped
-            if (!skipDuplicateCheck && isDuplicateSystemMessage(data)) {
-                return;
-            }
-
+        function addMessage(data) {
             const messagesContainer = document.getElementById('chat-messages');
             const messageEl = document.createElement('div');
             messageEl.className = `message ${data.type}`;
@@ -1368,7 +1347,8 @@
             if (data.type === 'system') {
                 content = `<span class="timestamp">[${data.timestamp}]</span> <em>*** ${data.message}</em>`;
             } else if (data.type === 'private') {
-                content = `<span class="timestamp">[${data.timestamp}]</span> <span style="color: #ff6b9d;">[PRIVATE]</span> <span class="username">&lt;${data.username}&gt;</span> ${escapeHtml(data.message)}`;
+                const processedMessage = processMessage(data.message);
+                content = `<span class="timestamp">[${data.timestamp}]</span> <span style="color: #ff6b9d;">[PRIVATE]</span> <span class="username">&lt;${data.username}&gt;</span> ${processedMessage}`;
             } else {
                 const processedMessage = processMessage(data.message);
                 content = `<span class="timestamp">[${data.timestamp}]</span> <span class="username">&lt;${data.username}&gt;</span> ${processedMessage}`;
@@ -1380,13 +1360,16 @@
         }
 
         function processMessage(message) {
+            // Process HTML tags first
+            let processedMsg = processHtmlTags(message);
+
             // Auto-embed images and GIFs
             if (message.startsWith('/gif ') || message.startsWith('/img ')) {
                 const url = message.substring(5).trim();
                 if (isValidImageUrl(url)) {
                     return `<div class="embedded-content"><img src="${url}" alt="Image" onerror="this.style.display='none'" loading="lazy"></div>`;
                 }
-                return escapeHtml(message);
+                return processedMsg;
             }
 
             // Auto-embed videos
@@ -1398,13 +1381,12 @@
                 } else if (isValidVideoUrl(url)) {
                     return `<div class="embedded-content"><video controls><source src="${url}"></video></div>`;
                 }
-                return escapeHtml(message);
+                return processedMsg;
             }
 
             // Check for direct image/video URLs
             const urlMatch = message.match(/https?:\/\/[^\s]+/g);
             if (urlMatch) {
-                let processedMsg = escapeHtml(message);
                 urlMatch.forEach(url => {
                     if (isValidImageUrl(url)) {
                         processedMsg = processedMsg.replace(url,
@@ -1421,18 +1403,116 @@
                         );
                     }
                 });
-                return processedMsg;
             }
 
-            return escapeHtml(message);
+            return processedMsg;
         }
 
-        function isValidImageUrl(url) {
-            return /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(url) && url.match(/^https?:\/\//);
+        function processHtmlTags(message) {
+            // Process HTML tags while escaping dangerous content
+            let processedMsg = message;
+
+            // Handle <size> tag with validation
+            processedMsg = processedMsg.replace(/<size=(\d+)>(.*?)<\/size>/gi, function (match, size, content) {
+                const fontSize = Math.max(6, Math.min(48, parseInt(size) || 16));
+                return `<span style="font-size: ${fontSize}px;">${content}</span>`;
+            });
+
+            // Handle other formatting tags
+            processedMsg = processedMsg.replace(/<b>(.*?)<\/b>/gi, '<b>$1</b>');
+            processedMsg = processedMsg.replace(/<bold>(.*?)<\/bold>/gi, '<bold>$1</bold>');
+            processedMsg = processedMsg.replace(/<big>(.*?)<\/big>/gi, '<big>$1</big>');
+            processedMsg = processedMsg.replace(/<center>(.*?)<\/center>/gi, '<center>$1</center>');
+            processedMsg = processedMsg.replace(/<small>(.*?)<\/small>/gi, '<small>$1</small>');
+            processedMsg = processedMsg.replace(/<blink>(.*?)<\/blink>/gi, '<blink>$1</blink>');
+            processedMsg = processedMsg.replace(/<marquee>(.*?)<\/marquee>/gi, '<marquee>$1</marquee>');
+
+            // Escape other potentially dangerous HTML
+            const tempDiv = document.createElement('div');
+            const allowedTags = ['b', 'bold', 'big', 'center', 'small', 'blink', 'marquee', 'span'];
+
+            // Create a safe version by only allowing specific tags
+            let safeMsg = '';
+            let inTag = false;
+            let currentTag = '';
+
+            for (let i = 0; i < processedMsg.length; i++) {
+                const char = processedMsg[i];
+
+                if (char === '<') {
+                    inTag = true;
+                    currentTag = '';
+                    safeMsg += char;
+                } else if (char === '>') {
+                    inTag = false;
+                    safeMsg += char;
+                } else if (inTag) {
+                    currentTag += char;
+                    safeMsg += char;
+                } else {
+                    // Escape dangerous characters outside of allowed tags
+                    if (char === '&') {
+                        safeMsg += '&amp;';
+                    } else if (char === '"') {
+                        safeMsg += '&quot;';
+                    } else if (char === "'") {
+                        safeMsg += '&#x27;';
+                    } else {
+                        safeMsg += char;
+                    }
+                }
+            }
+
+            return safeMsg;
         }
+        function parseUrlSafe(raw) {
+            try { return new URL(raw); } catch { return null; }
+        }
+
+        function hasExt(pathname, exts) {
+            const p = (pathname || '').toLowerCase();
+            return exts.some(ext => p.endsWith('.' + ext));
+        }
+
+        function isDiscordHost(host) {
+            // Common Discord media/attachment hosts
+            const h = (host || '').toLowerCase();
+            return h.endsWith('discordapp.com') ||
+                h.endsWith('discord.com') ||
+                h.endsWith('media.discordapp.net') ||
+                h === 'cdn.discordapp.com';
+        }
+        function isValidImageUrl(url) {
+            const u = parseUrlSafe(url);
+            if (!u || (u.protocol !== 'http:' && u.protocol !== 'https:')) return false;
+
+            // Accept standard image extensions based on pathname (ignores ?query)
+            const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
+            if (hasExt(u.pathname, imageExts)) return true;
+
+            // Discord special-case: `format=webp` or similar in query, or known image CDN
+            if (isDiscordHost(u.host)) {
+                const fmt = (u.searchParams.get('format') || '').toLowerCase();
+                if (fmt && imageExts.includes(fmt)) return true;
+                // Many Discord image links include proper extensions already, handled above.
+                return true; // Be lenient for Discord CDN images
+            }
+
+            return false;
+        }
+
 
         function isValidVideoUrl(url) {
-            return /\.(mp4|webm|ogg|avi|mov)$/i.test(url) && url.match(/^https?:\/\//);
+            const u = parseUrlSafe(url);
+            if (!u || (u.protocol !== 'http:' && u.protocol !== 'https:')) return false;
+
+            const videoExts = ['mp4', 'webm', 'ogg', 'avi', 'mov', 'm4v'];
+            if (hasExt(u.pathname, videoExts)) return true;
+
+            // Discord attachments often have extension before query; also allow trusted hosts
+            if (isDiscordHost(u.host)) return true;
+
+            return false;
         }
 
         function isYouTubeUrl(url) {
@@ -1444,19 +1524,13 @@
             return match ? match[1] : '';
         }
 
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
         function renderUsersList(users) {
             console.log('Rendering users list:', users);
             const usersList = document.getElementById('users-list');
             usersList.innerHTML = '';
 
             // Remove duplicates and sort
-            const uniqueUsers = [...new Set([...users, ...Array.from(roomUsers)])].sort();
+            const uniqueUsers = [...new Set(users)].sort();
 
             uniqueUsers.forEach(user => {
                 const userEl = document.createElement('div');
@@ -1464,9 +1538,9 @@
 
                 if (isOwner && user !== currentUser.username) {
                     userEl.innerHTML = `
-                        <span>${user}</span>
-                        <button class="kick-btn" onclick="kickUser('${user}')">KICK</button>
-                    `;
+                <span>${user}</span>
+                <button class="kick-btn" onclick="kickUser('${user}')">KICK</button>
+            `;
                 } else {
                     userEl.textContent = user;
                 }
@@ -1513,7 +1587,6 @@
             if (message === '/clear') {
                 document.getElementById('chat-messages').innerHTML = '';
                 roomUsers.clear();
-                systemMessageCache.clear();
                 input.value = '';
                 autoResizeTextarea(input);
                 return;
@@ -1545,6 +1618,15 @@
 /logs - Load room chat logs
 /clear - Clear chat messages
 
+*** FORMATTING TAGS ***
+<b>text</b> or <bold>text</bold> - Bold text
+<big>text</big> - Larger text
+<small>text</small> - Smaller text
+<center>text</center> - Centered text
+<blink>text</blink> - Blinking text
+<marquee>text</marquee> - Scrolling text
+<size=12>text</size> - Custom font size (6-48px)
+
 *** MEDIA EMBEDDING ***
 - Supported image formats: JPG, JPEG, PNG, GIF, WEBP, BMP, SVG
 - Supported video formats: MP4, WEBM, OGG, AVI, MOV
@@ -1560,12 +1642,20 @@
 
             const helpMsg = {
                 type: 'system',
-                message: helpText,
+                // Escape so tags display literally in chat
+                message: escapeHtml(helpText),
                 timestamp: new Date().toLocaleTimeString().substring(0, 8)
             };
-            addMessage(helpMsg, true); // Skip duplicate check for help message
+            addMessage(helpMsg);
         }
-
+        function escapeHtml(str) {
+            return String(str)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
         function scrollToBottom() {
             const container = document.getElementById('chat-messages');
             container.scrollTop = container.scrollHeight;
@@ -1698,29 +1788,44 @@
             }
 
             console.log('Changing nickname to:', newNickname);
-            const oldNick = currentUser.username;
 
-            roomUsers.delete(oldNick);
-            roomUsers.add(newNickname);
-
-            currentUser.username = newNickname;
-            document.getElementById('current-username').textContent = newNickname;
-
-            sessionStorage.setItem('terminet_user', JSON.stringify(currentUser));
-
-            showNotification('Nickname changed successfully!', 'success');
-            closeModal('nick-modal');
-
-            if (currentRoom) {
-                const systemMsg = {
-                    type: 'system',
-                    message: `${oldNick} changed their nickname to ${newNickname}`,
-                    timestamp: new Date().toLocaleTimeString().substring(0, 8)
-                };
-                addMessage(systemMsg, true); // Skip duplicate check for nick change
-                renderUsersList(Array.from(roomUsers));
+            if (socket && socket.connected && currentRoom) {
+                socket.emit('change_nickname', {
+                    user_id: currentUser.user_id,
+                    new_nick: newNickname,
+                    room_id: currentRoom
+                });
+            } else {
+                showNotification('Not connected to server or no room selected', 'error');
             }
         }
+
+        // Add these new socket event handlers in the initialization section:
+
+        socket.on('nickname_changed', function (data) {
+            console.log('Nickname changed successfully:', data);
+            if (data.success) {
+                const oldNick = currentUser.username;
+                currentUser.username = data.new_nick;
+                document.getElementById('current-username').textContent = data.new_nick;
+                sessionStorage.setItem('terminet_user', JSON.stringify(currentUser));
+                showNotification('Nickname changed successfully!', 'success');
+                closeModal('nick-modal');
+            }
+        });
+
+        socket.on('nickname_error', function (data) {
+            console.error('Nickname change error:', data);
+            showNotification('Nickname change failed: ' + data.error, 'error');
+        });
+
+        // Also update the users_list handler to properly update the roomUsers set:
+
+        socket.on('users_list', function (data) {
+            console.log('Users list:', data);
+            roomUsers = new Set(data.users || []);
+            renderUsersList(Array.from(roomUsers));
+        });
 
         function confirmDeleteServer(serverId, serverName) {
             showConfirmModal(
