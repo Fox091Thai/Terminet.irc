@@ -11,7 +11,8 @@ Features:
 - /img <link> /GIF <link> /Video <link> /help command
 - simple to use?
 - no personal information needed
-- run almost anywhere with python and internet access
+- run almost anywhere with python and internet access(server)
+- run on web browsers (modern JavaScript support)
 
 Who is compatible with this?
 - small secret chat group
