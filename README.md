@@ -26,7 +26,8 @@ set up:
 - Change keys in terminet_server.py (app.config['SECRET_KEY'] = 'your_secret_key_here' CUSTOM_ENCRYPTION_KEY = 'replace_with_your_secure_phrase')
 - run the server (python3 terminet_server.py)
 - Access it at:Login/Register → http://[your ip]:5000/ (if you set it currectly)
-
+Note:
+- this thing only run on HTTP so if you have a time, i recommended you to make it HTTPS somehow.
 
 about bug:
 - Please expect the bug and mess up code.
