@@ -11,7 +11,12 @@ Features:
 - /img <link> /GIF <link> /Video <link> /help command
 - simple to use?
 - no personal information needed
+- run almost anywhere with python and internet access
 
+Who is compatible with this?
+- small secret chat group
+- the users that need privacy
+- people who want to experiment with IRC
 
 set up:
 - set allow port [default at port 5000] both inbound and outbound in firewall (if you use your computer as an IRC server)
