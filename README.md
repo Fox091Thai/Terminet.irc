@@ -26,6 +26,7 @@ set up:
 - Change keys in terminet_server.py (CUSTOM_ENCRYPTION_KEY = 'replace_with_your_secure_phrase') at line 48
 - run the server (python3 terminet_server.py)
 - Access it at:Login/Register → http://[your ip]:5000/ (if you set it currectly)
+
 Note:
 - this thing only run on HTTP so if you have a time, i recommended you to make it HTTPS somehow.
 
