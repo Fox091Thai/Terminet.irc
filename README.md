@@ -23,7 +23,7 @@ set up:
 - set allow port [default at port 5000] both inbound and outbound in firewall (if you use your computer as an IRC server)
 - find your public IP
 - get python 3.9 and then pip install flask flask-socketio werkzeug cryptography
-- Change keys in terminet_server.py (app.config['SECRET_KEY'] = 'your_secret_key_here' CUSTOM_ENCRYPTION_KEY = 'replace_with_your_secure_phrase')
+- Change keys in terminet_server.py (CUSTOM_ENCRYPTION_KEY = 'replace_with_your_secure_phrase') at line 48
 - run the server (python3 terminet_server.py)
 - Access it at:Login/Register → http://[your ip]:5000/ (if you set it currectly)
 Note:
