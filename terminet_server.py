@@ -1,4 +1,4 @@
-# terminet_server.py - Enhanced Flask Server with SHARED LOGS & NO DUPLICATES
+# terminet_server.py - Enhanced Flask Server with AES-GCM & Database-Only Storage
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -11,12 +11,12 @@ from datetime import datetime
 import logging
 import threading
 import time
-from pathlib import Path
 import base64
 import hashlib
-from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.backends import default_backend
 import uuid
 
 # Configure logging
@@ -24,7 +24,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='.', template_folder='.')
-app.config['SECRET_KEY'] = 'terminet_secret_key_2024_http'
+app.config['SECRET_KEY'] = 'terminet_secret_key_2024_http' #change this as you needed
 
 # SocketIO Configuration for HTTP
 socketio = SocketIO(
@@ -39,61 +39,95 @@ socketio = SocketIO(
     allow_upgrades=True
 )
 
-# Database and logging configuration
+# Database configuration (NO LOG FILES)
 DATABASE = 'terminet.db'
-LOGS_DIR = 'logs'
-MAX_MESSAGES_PER_LOG = 512
 
-# ENCRYPTION CONFIGURATION
-CUSTOM_ENCRYPTION_KEY = "https://www.youtube.com/watch?v=zgoz4qKKdV8" #change this key as you want  # is that daisy bell? 
-SALT = b'terminet_salt_2024'  # Fixed salt for consistency / what is this?
+# ENCRYPTION CONFIGURATION - AES-GCM
+CUSTOM_ENCRYPTION_KEY = "https://www.youtube.com/watch?v=zgoz4qKKdV8"  # change this as your key, is that daisy bell?
+SALT = b'terminet_salt_2024'  # change this as you needed
 
-class EncryptionManager:
-    """Handles all encryption/decryption operations"""
+class AESGCMManager:
+    """Handles all AES-GCM encryption/decryption operations"""
     
     def __init__(self, custom_key: str):
         self.custom_key = custom_key
-        self._cipher = None
-        self._setup_cipher()
+        self._key = None
+        self._setup_key()
     
-    def _setup_cipher(self):
-        """Setup Fernet cipher with custom key"""
+    def _setup_key(self):
+        """Derive AES key from custom string using PBKDF2"""
         try:
-            # Derive a proper encryption key from custom string
             kdf = PBKDF2HMAC(
                 algorithm=hashes.SHA256(),
-                length=32,
+                length=32,  # 256-bit key for AES-256
                 salt=SALT,
                 iterations=100000,
+                backend=default_backend()
             )
-            key = base64.urlsafe_b64encode(kdf.derive(self.custom_key.encode('utf-8')))
-            self._cipher = Fernet(key)
-            logger.info("Encryption manager initialized successfully")
+            self._key = kdf.derive(self.custom_key.encode('utf-8'))
+            logger.info("AES-GCM encryption manager initialized successfully")
         except Exception as e:
-            logger.error(f"Failed to setup encryption: {e}")
+            logger.error(f"Failed to setup AES-GCM encryption: {e}")
             raise
     
     def encrypt_data(self, data: str) -> str:
-        """Encrypt string data and return base64 encoded result"""
+        """Encrypt string data using AES-GCM and return base64 encoded result"""
         try:
             if not data:
                 return ""
-            encrypted = self._cipher.encrypt(data.encode('utf-8'))
-            return base64.urlsafe_b64encode(encrypted).decode('utf-8')
+            
+            # Generate random 96-bit (12 bytes) nonce for GCM
+            nonce = os.urandom(12)
+            
+            # Create cipher
+            cipher = Cipher(
+                algorithms.AES(self._key),
+                modes.GCM(nonce),
+                backend=default_backend()
+            )
+            encryptor = cipher.encryptor()
+            
+            # Encrypt data
+            ciphertext = encryptor.update(data.encode('utf-8')) + encryptor.finalize()
+            
+            # Combine nonce + tag + ciphertext
+            encrypted_data = nonce + encryptor.tag + ciphertext
+            
+            return base64.urlsafe_b64encode(encrypted_data).decode('utf-8')
+            
         except Exception as e:
-            logger.error(f"Encryption error: {e}")
+            logger.error(f"AES-GCM encryption error: {e}")
             return data
     
     def decrypt_data(self, encrypted_data: str) -> str:
-        """Decrypt base64 encoded data and return original string"""
+        """Decrypt AES-GCM data and return original string"""
         try:
             if not encrypted_data:
                 return ""
-            decoded = base64.urlsafe_b64decode(encrypted_data.encode('utf-8'))
-            decrypted = self._cipher.decrypt(decoded)
+            
+            # Decode from base64
+            raw_data = base64.urlsafe_b64decode(encrypted_data.encode('utf-8'))
+            
+            # Extract nonce (12 bytes), tag (16 bytes), and ciphertext
+            nonce = raw_data[:12]
+            tag = raw_data[12:28]
+            ciphertext = raw_data[28:]
+            
+            # Create cipher
+            cipher = Cipher(
+                algorithms.AES(self._key),
+                modes.GCM(nonce, tag),
+                backend=default_backend()
+            )
+            decryptor = cipher.decryptor()
+            
+            # Decrypt data
+            decrypted = decryptor.update(ciphertext) + decryptor.finalize()
+            
             return decrypted.decode('utf-8')
+            
         except Exception as e:
-            logger.error(f"Decryption error: {e}")
+            logger.error(f"AES-GCM decryption error: {e}")
             return encrypted_data
     
     def encrypt_json(self, data: dict) -> str:
@@ -114,103 +148,8 @@ class EncryptionManager:
             logger.error(f"JSON decryption error: {e}")
             return {}
 
-# Initialize encryption manager
-encryption_manager = EncryptionManager(CUSTOM_ENCRYPTION_KEY)
-
-def ensure_logs_directory():
-    """Create logs directory structure if it doesn't exist"""
-    if not os.path.exists(LOGS_DIR):
-        os.makedirs(LOGS_DIR)
-        logger.info(f"Created logs directory: {LOGS_DIR}")
-
-def get_shared_log_file(server_id, room_id, room_name):
-    """FIXED: Get SHARED log file path - all users see same history"""
-    server_dir = os.path.join(LOGS_DIR, f"server_{server_id}")
-    os.makedirs(server_dir, exist_ok=True)
-    log_file = os.path.join(server_dir, f"room_{room_id}_{room_name}.enc")
-    return log_file
-
-def save_message_to_shared_log(server_id, room_id, room_name, message_data):
-    """FIXED: Save ENCRYPTED message to SHARED log file"""
-    try:
-        log_file = get_shared_log_file(server_id, room_id, room_name)
-        
-        # Load existing messages
-        messages = []
-        if os.path.exists(log_file):
-            try:
-                with open(log_file, 'r', encoding='utf-8') as f:
-                    encrypted_content = f.read().strip()
-                    if encrypted_content:
-                        messages = encryption_manager.decrypt_json(encrypted_content)
-                        if not isinstance(messages, list):
-                            messages = []
-            except (json.JSONDecodeError, FileNotFoundError, Exception) as e:
-                logger.warning(f"Could not load encrypted log file {log_file}: {e}")
-                messages = []
-        
-        # Add new message with unique ID and timestamp
-        new_message = {
-            'id': str(uuid.uuid4()),  # UNIQUE MESSAGE ID
-            'timestamp': datetime.now().isoformat(),
-            'username': message_data.get('username', 'Unknown'),
-            'message': message_data.get('message', ''),
-            'message_type': message_data.get('message_type', 'user'),
-            'user_id': message_data.get('user_id'),
-            'display_time': datetime.now().strftime('%H:%M:%S')
-        }
-        messages.append(new_message)
-        
-        # Keep only the latest 512 messages
-        if len(messages) > MAX_MESSAGES_PER_LOG:
-            messages = messages[-MAX_MESSAGES_PER_LOG:]
-        
-        # Encrypt and save back to file
-        encrypted_content = encryption_manager.encrypt_json(messages)
-        with open(log_file, 'w', encoding='utf-8') as f:
-            f.write(encrypted_content)
-        
-        logger.debug(f"Saved encrypted message to SHARED log: {log_file} (total: {len(messages)})")
-        
-    except Exception as e:
-        logger.error(f"Error saving encrypted message to shared log file: {e}")
-
-def load_shared_room_log(server_id, room_id, room_name, limit=50):
-    """FIXED: Load recent messages from SHARED encrypted log file"""
-    try:
-        log_file = get_shared_log_file(server_id, room_id, room_name)
-        
-        if not os.path.exists(log_file):
-            return []
-        
-        with open(log_file, 'r', encoding='utf-8') as f:
-            encrypted_content = f.read().strip()
-            if not encrypted_content:
-                return []
-            
-            messages = encryption_manager.decrypt_json(encrypted_content)
-            if not isinstance(messages, list):
-                return []
-        
-        # Return the last 'limit' messages
-        recent_messages = messages[-limit:] if len(messages) > limit else messages
-        
-        # Format for frontend WITH UNIQUE IDs
-        formatted_messages = []
-        for msg in recent_messages:
-            formatted_messages.append({
-                'id': msg.get('id', str(uuid.uuid4())),  # Ensure every message has an ID
-                'type': msg.get('message_type', 'user'),
-                'username': msg.get('username', 'Unknown'),
-                'message': msg.get('message', ''),
-                'timestamp': msg.get('display_time', '00:00:00')
-            })
-        
-        return formatted_messages
-        
-    except Exception as e:
-        logger.error(f"Error loading encrypted shared room log: {e}")
-        return []
+# Initialize AES-GCM encryption manager
+encryption_manager = AESGCMManager(CUSTOM_ENCRYPTION_KEY)
 
 def get_db():
     """Get database connection with proper error handling and foreign keys enabled"""
@@ -226,7 +165,7 @@ def get_db():
         raise
 
 def init_db():
-    """Initialize database with required tables - Create if not exists with ENCRYPTION + MESSAGE IDs"""
+    """Initialize database with required tables - AES-GCM encrypted, database-only storage"""
     try:
         db_exists = os.path.exists(DATABASE)
         logger.info(f"Database file exists: {db_exists}")
@@ -286,24 +225,6 @@ def init_db():
                 )
             ''')
             
-            # User-Room join tracking table
-            conn.execute('''
-                CREATE TABLE IF NOT EXISTS user_room_join_map (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER NOT NULL,
-                    server_id INTEGER NOT NULL,
-                    room_id INTEGER NOT NULL,
-                    session_id TEXT NOT NULL,
-                    has_shown_join_message INTEGER DEFAULT 0,
-                    last_join_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                    FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE,
-                    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
-                    UNIQUE(user_id, server_id, room_id, session_id)
-                )
-            ''')
-            
             # Rooms table - room names encrypted
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS rooms (
@@ -317,7 +238,7 @@ def init_db():
                 )
             ''')
             
-            # Messages table - all content encrypted + UNIQUE MESSAGE IDs
+            # Messages table - all content encrypted + UNIQUE MESSAGE IDs (DATABASE ONLY)
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS messages (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -360,65 +281,11 @@ def init_db():
                 count = conn.execute(f'SELECT COUNT(*) FROM {table}').fetchone()[0]
                 logger.info(f"Table {table}: {count} records")
             
-            logger.info("Database initialized successfully with SHARED LOGS + MESSAGE IDs")
+            logger.info("Database initialized successfully with AES-GCM encryption + DATABASE-ONLY storage")
             
     except Exception as e:
         logger.error(f"Database initialization error: {e}")
         raise
-
-def should_show_join_message(user_id, server_id, room_id, session_id):
-    """Check if join message should be shown for this specific room in this session"""
-    try:
-        with get_db() as conn:
-            # Check if user has already shown join message for this room in this session
-            result = conn.execute('''
-                SELECT has_shown_join_message FROM user_room_join_map 
-                WHERE user_id = ? AND server_id = ? AND room_id = ? AND session_id = ?
-            ''', (user_id, server_id, room_id, session_id)).fetchone()
-            
-            if not result:
-                # First time joining this room in this session
-                conn.execute('''
-                    INSERT OR IGNORE INTO user_room_join_map 
-                    (user_id, server_id, room_id, session_id, has_shown_join_message)
-                    VALUES (?, ?, ?, ?, 0)
-                ''', (user_id, server_id, room_id, session_id))
-                conn.commit()
-                return True
-            
-            # Return True if join message hasn't been shown yet
-            return result['has_shown_join_message'] == 0
-            
-    except Exception as e:
-        logger.error(f"Error checking join message status: {e}")
-        return True  # Default to showing message on error
-
-def mark_join_message_shown(user_id, server_id, room_id, session_id):
-    """Mark that join message has been shown for this room in this session"""
-    try:
-        with get_db() as conn:
-            conn.execute('''
-                INSERT OR REPLACE INTO user_room_join_map 
-                (user_id, server_id, room_id, session_id, has_shown_join_message, last_join_at)
-                VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
-            ''', (user_id, server_id, room_id, session_id))
-            conn.commit()
-            logger.debug(f"Marked join message shown for user {user_id} in room {room_id}")
-    except Exception as e:
-        logger.error(f"Error marking join message shown: {e}")
-
-def cleanup_user_session_on_disconnect(session_id):
-    """Clean up session-specific join tracking when user disconnects"""
-    try:
-        with get_db() as conn:
-            conn.execute('''
-                DELETE FROM user_room_join_map 
-                WHERE session_id = ?
-            ''', (session_id,))
-            conn.commit()
-            logger.debug(f"Cleaned up join tracking for session {session_id}")
-    except Exception as e:
-        logger.error(f"Error cleaning up session join tracking: {e}")
 
 def generate_unique_code(length=8):
     """Generate cryptographically secure unique code"""
@@ -481,20 +348,6 @@ def mark_user_joined_server(user_id, server_id):
     except Exception as e:
         logger.error(f"Error marking user joined: {e}")
 
-def reset_user_join_status(user_id, server_id):
-    """Reset user's join status for server (set is_first_join = 0)"""
-    try:
-        with get_db() as conn:
-            conn.execute('''
-                UPDATE user_server_join_map 
-                SET is_first_join = 0, last_join_at = CURRENT_TIMESTAMP
-                WHERE user_id = ? AND server_id = ?
-            ''', (user_id, server_id))
-            conn.commit()
-            logger.debug(f"Reset join status for user {user_id} in server {server_id}")
-    except Exception as e:
-        logger.error(f"Error resetting join status: {e}")
-
 def cleanup_user_join_status_on_disconnect(user_id):
     """Reset ALL server join statuses for disconnected user"""
     try:
@@ -515,13 +368,13 @@ active_users = {}
 room_users = {}
 
 def save_message_to_db(room_id, server_id, user_id, username, message, message_type='user', message_id=None):
-    """FIXED: Save ENCRYPTED message to database with UNIQUE MESSAGE ID"""
+    """Save AES-GCM encrypted message to database with UNIQUE MESSAGE ID"""
     try:
         if not message_id:
             message_id = str(uuid.uuid4())
             
         with get_db() as conn:
-            # Encrypt sensitive data
+            # Encrypt sensitive data using AES-GCM
             username_encrypted = encryption_manager.encrypt_data(username)
             message_encrypted = encryption_manager.encrypt_data(message)
             
@@ -536,15 +389,15 @@ def save_message_to_db(room_id, server_id, user_id, username, message, message_t
                     INSERT INTO messages (message_id, room_id, server_id, user_id, username_encrypted, message_encrypted, message_type)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 ''', (message_id, room_id, server_id, user_id, username_encrypted, message_encrypted, message_type))
-                logger.debug(f"Saved encrypted message from {username} in room {room_id} with ID {message_id}")
+                logger.debug(f"Saved AES-GCM encrypted message from {username} in room {room_id} with ID {message_id}")
             else:
                 logger.debug(f"Message {message_id} already exists, skipping duplicate")
                 
     except Exception as e:
-        logger.error(f"Error saving encrypted message to database: {e}")
+        logger.error(f"Error saving AES-GCM encrypted message to database: {e}")
 
-def load_room_messages(room_id, limit=50):
-    """FIXED: Load recent messages for a room from database (fallback) - DECRYPT with IDs"""
+def load_room_messages(room_id, limit=100):
+    """Load recent messages for a room from database - AES-GCM decrypt with IDs"""
     try:
         with get_db() as conn:
             messages = conn.execute('''
@@ -558,7 +411,7 @@ def load_room_messages(room_id, limit=50):
             
             result = []
             for msg in reversed(messages):
-                # Decrypt the data
+                # Decrypt the data using AES-GCM
                 username = encryption_manager.decrypt_data(msg['username_encrypted'])
                 message_text = encryption_manager.decrypt_data(msg['message_encrypted'])
                 
@@ -571,7 +424,7 @@ def load_room_messages(room_id, limit=50):
                 })
             return result
     except Exception as e:
-        logger.error(f"Error loading encrypted messages: {e}")
+        logger.error(f"Error loading AES-GCM encrypted messages: {e}")
         return []
 
 def leave_server(server_id, user_id):
@@ -605,7 +458,6 @@ def leave_server(server_id, user_id):
     except Exception as e:
         logger.error(f"Error leaving server: {e}")
         return False, f"Error leaving server: {str(e)}"
-        
 
 def disconnect_user_from_server(user_id, server_id):
     """Disconnect user from all rooms in a server"""
@@ -670,10 +522,9 @@ def health():
         return jsonify({
             'status': 'healthy', 
             'database': 'connected', 
-            'logs_dir': LOGS_DIR,
-            'encryption': 'enabled',
+            'encryption': 'AES-GCM',
+            'storage': 'database-only',
             'join_tracking': 'enabled',
-            'shared_logs': 'enabled',
             'duplicate_prevention': 'enabled'
         })
     except Exception as e:
@@ -758,8 +609,8 @@ def on_connect():
     logger.info(f'Client connected: {request.sid}')
     emit('connection_confirmed', {
         'status': 'connected', 
-        'server': 'terminet_shared_logs_no_duplicates',
-        'message': 'Socket connection established with shared logs and duplicate prevention'
+        'server': 'terminet_aes_gcm_database_only',
+        'message': 'Socket connection established with AES-GCM encryption and database-only storage'
     })
 
 @socketio.on('disconnect')
@@ -790,23 +641,6 @@ def on_disconnect():
                             message_id
                         )
                         
-                        # Get room info for shared logging
-                        with get_db() as conn:
-                            room_info = conn.execute('SELECT name_encrypted FROM rooms WHERE id = ?', (room_id,)).fetchone()
-                            room_name = encryption_manager.decrypt_data(room_info['name_encrypted']) if room_info else 'unknown'
-                        
-                        # Save to shared log
-                        save_message_to_shared_log(
-                            user_data.get('server_id', 0),
-                            room_id,
-                            room_name,
-                            {
-                                'username': 'SYSTEM',
-                                'message': f'{user_data["username"]} left the room',
-                                'message_type': 'system'
-                            }
-                        )
-                        
                         system_msg = {
                             'id': message_id,
                             'type': 'system',
@@ -818,15 +652,15 @@ def on_disconnect():
                         users_in_room = [active_users[sid]['username'] for sid in users if sid in active_users]
                         emit('users_list', {'users': users_in_room}, room=f'room_{room_id}')
             
-            room_users = {k: v for k, v in room_users.items() if v}
-            del active_users[request.sid]
-            
+            empty_rooms = [k for k, v in room_users.items() if not v]
+            for k in empty_rooms:
+                del room_users[k]
     except Exception as e:
         logger.error(f"Error in disconnect handler: {e}")
 
 @socketio.on('get_user_servers')
 def on_get_user_servers(data):
-    """Get user's servers - ENHANCED WITH DECRYPTION"""
+    """Get user's servers - AES-GCM decryption"""
     try:
         user_id = data.get('user_id')
         logger.info(f"Getting servers for user {user_id}")
@@ -886,7 +720,7 @@ def on_get_user_servers(data):
 
 @socketio.on('create_server')
 def on_create_server(data):
-    """Create new server - ENHANCED ERROR HANDLING WITH ENCRYPTION"""
+    """Create new server - AES-GCM encryption"""
     try:
         name = data.get('name', '').strip()
         description = data.get('description', '').strip()
@@ -904,7 +738,7 @@ def on_create_server(data):
         
         server_code = ensure_unique_code('servers', 'server_code')
         
-        # Encrypt server data
+        # Encrypt server data using AES-GCM
         name_encrypted = encryption_manager.encrypt_data(name)
         description_encrypted = encryption_manager.encrypt_data(description)
         
@@ -932,10 +766,6 @@ def on_create_server(data):
             
             conn.commit()
             
-            # Create shared server log directory
-            server_log_dir = os.path.join(LOGS_DIR, f"server_{server_id}")
-            os.makedirs(server_log_dir, exist_ok=True)
-            
             emit('server_created', {'success': True, 'server_id': server_id, 'server_code': server_code})
             logger.info(f"Server created successfully: {name} ({server_code}) ID:{server_id} by user {owner_id}")
             
@@ -945,7 +775,7 @@ def on_create_server(data):
 
 @socketio.on('join_server')
 def on_join_server(data):
-    """Join an existing server - ENHANCED WITH DECRYPTION"""
+    """Join an existing server - AES-GCM decryption"""
     try:
         server_code = data.get('server_code', '').strip().upper()
         user_id = data.get('user_id')
@@ -1023,7 +853,7 @@ def on_leave_server(data):
 
 @socketio.on('get_server_data')
 def on_get_server_data(data):
-    """Get server data including rooms - ENHANCED WITH DECRYPTION"""
+    """Get server data including rooms - AES-GCM decryption"""
     try:
         server_id = data.get('server_id')
         user_id = data.get('user_id')
@@ -1092,7 +922,7 @@ def on_get_server_data(data):
 
 @socketio.on('join_room')
 def on_join_room(data):
-    """FIXED: Join a chat room - NO DUPLICATES & SHARED LOGS"""
+    """Join a chat room - DATABASE ONLY storage"""
     try:
         room_id = data.get('room_id')
         user_id = data.get('user_id')
@@ -1149,13 +979,8 @@ def on_join_room(data):
             room_users[room_id] = set()
         room_users[room_id].add(request.sid)
         
-        # FIXED: Load messages ONLY from SHARED log file (no duplicates)
-        messages = load_shared_room_log(room_access['server_id'], room_id, room_access['name'])
-        
-        # Fallback to database ONLY if shared log is empty
-        if not messages:
-            logger.info(f"Shared log empty, loading from database for room {room_id}")
-            messages = load_room_messages(room_id)
+        # Load messages from database only
+        messages = load_room_messages(room_id)
         
         emit('room_joined', {
             'room_id': room_id,
@@ -1163,7 +988,7 @@ def on_join_room(data):
             'messages': messages
         })
         
-        # CHECK: Use database join tracking to determine if join message should be shown
+        # Use database join tracking to determine if join message should be shown
         should_show_join_message = is_first_join_to_server(user_id, room_access['server_id'])
         
         if should_show_join_message:
@@ -1181,18 +1006,6 @@ def on_join_room(data):
                 f'{username} joined the room',
                 'system',
                 message_id
-            )
-            
-            # Save join message to SHARED log
-            save_message_to_shared_log(
-                room_access['server_id'],
-                room_id,
-                room_access['name'],
-                {
-                    'username': 'SYSTEM',
-                    'message': f'{username} joined the room',
-                    'message_type': 'system'
-                }
             )
             
             system_msg = {
@@ -1218,7 +1031,7 @@ def on_join_room(data):
 
 @socketio.on('send_message')
 def on_send_message(data):
-    """FIXED: Send a chat message - NO DUPLICATES & SHARED LOGS"""
+    """Send a chat message - DATABASE ONLY storage"""
     try:
         message_text = data.get('message', '').strip()
         user_id = data.get('user_id')
@@ -1242,26 +1055,8 @@ def on_send_message(data):
         # Generate unique message ID to prevent duplicates
         message_id = str(uuid.uuid4())
         
-        # Get room name for logging - decrypt
-        with get_db() as conn:
-            room_info = conn.execute('SELECT name_encrypted FROM rooms WHERE id = ?', (room_id,)).fetchone()
-            room_name = encryption_manager.decrypt_data(room_info['name_encrypted']) if room_info else 'unknown'
-        
-        # Save to database (encrypted) with unique ID
+        # Save to database (AES-GCM encrypted) with unique ID
         save_message_to_db(room_id, server_id, user_id, user_data['username'], message_text, 'user', message_id)
-        
-        # Save to SHARED encrypted log file
-        save_message_to_shared_log(
-            server_id,
-            room_id,
-            room_name,
-            {
-                'username': user_data['username'],
-                'message': message_text,
-                'message_type': 'user',
-                'user_id': user_id
-            }
-        )
         
         message_obj = {
             'id': message_id,
@@ -1400,16 +1195,15 @@ def on_kick_user(data):
                 }
                 emit('system_message', system_msg, room=f'room_{room_raw["id"]}')
                 
-                # Save system message to shared log
-                save_message_to_shared_log(
-                    server_id,
-                    room_raw['id'],
-                    room_name,
-                    {
-                        'username': 'SYSTEM',
-                        'message': f'{username} was removed from the server by {kicker_name}',
-                        'message_type': 'system'
-                    }
+                # Save system message to database
+                save_message_to_db(
+                    room_raw['id'], 
+                    server_id, 
+                    kicked_by, 
+                    'SYSTEM', 
+                    f'{username} was removed from the server by {kicker_name}',
+                    'system',
+                    message_id
                 )
                 
                 # Update users list for each room (kicked user will be gone)
@@ -1501,15 +1295,6 @@ def on_delete_room(data):
             
             conn.commit()
             
-            # Clean up SHARED log file for this room
-            try:
-                log_file = get_shared_log_file(server_id, room_id, room_name)
-                if os.path.exists(log_file):
-                    os.remove(log_file)
-                    logger.debug(f"Removed shared log file: {log_file}")
-            except Exception as e:
-                logger.warning(f"Could not remove shared log file: {e}")
-            
             emit('room_deleted', {'success': True, 'message': f'Room #{room_name} has been deleted'})
             logger.info(f"Room '{room_name}' (ID: {room_id}) deleted successfully by user {user_id}")
             
@@ -1545,17 +1330,7 @@ def on_delete_server(data):
                 emit('server_deleted', {'success': False, 'error': 'Only the server owner can delete this server'})
                 return
 
-            # Clean up SHARED log files for entire server
-            try:
-                server_log_dir = os.path.join(LOGS_DIR, f"server_{server_id}")
-                if os.path.exists(server_log_dir):
-                    import shutil
-                    shutil.rmtree(server_log_dir)
-                    logger.info(f"Removed shared log directory: {server_log_dir}")
-            except Exception as e:
-                logger.warning(f"Could not remove server log directory: {e}")
-
-            # Delete the server. ON DELETE CASCADE in the database will handle removing members, rooms, etc.
+            # Delete the server. ON DELETE CASCADE in the database will handle removing members, rooms, messages, etc.
             conn.execute('DELETE FROM servers WHERE id = ?', (server_id,))
             conn.commit()
             
@@ -1631,7 +1406,7 @@ def on_create_room(data):
 
 @socketio.on('get_room_logs')  
 def on_get_room_logs(data):
-    """FIXED: Get room chat logs from SHARED encrypted files"""
+    """Get room chat logs from database"""
     try:
         user_id = data.get('user_id')
         server_id = data.get('server_id')
@@ -1639,9 +1414,9 @@ def on_get_room_logs(data):
         room_name = data.get('room_name')
         limit = data.get('limit', 100)
         
-        logger.info(f"Loading SHARED logs for room {room_name} (ID: {room_id}) for user {user_id}")
+        logger.info(f"Loading logs for room {room_name} (ID: {room_id}) for user {user_id}")
         
-        if not all([user_id, server_id, room_id, room_name]):
+        if not all([user_id, server_id, room_id]):
             emit('room_logs', {'success': False, 'error': 'Missing required data'})
             return
         
@@ -1657,17 +1432,15 @@ def on_get_room_logs(data):
                 emit('room_logs', {'success': False, 'error': 'Access denied to this room'})
                 return
         
-        # Load messages from SHARED encrypted log file
-        messages = load_shared_room_log(server_id, room_id, room_name, limit)
+        # Load messages from database
+        messages = load_room_messages(room_id, limit)
         
         emit('room_logs', {'success': True, 'messages': messages})
-        logger.info(f"Loaded {len(messages)} SHARED log messages for user {user_id}")
+        logger.info(f"Loaded {len(messages)} log messages for user {user_id}")
         
     except Exception as e:
-        logger.error(f"Error loading SHARED room logs: {e}")
+        logger.error(f"Error loading room logs: {e}")
         emit('room_logs', {'success': False, 'error': f'Failed to load logs: {str(e)}'})
-
-# In terminet_server.py, update the on_change_nickname function:
 
 @socketio.on('change_nickname')
 def on_change_nickname(data):
@@ -1703,7 +1476,7 @@ def on_change_nickname(data):
             # Update database
             conn.execute('UPDATE users SET username = ? WHERE id = ?', (new_nick, user_id))
             
-            # Get server_id for logging
+            # Get server_id
             room_info = conn.execute(
                 'SELECT server_id, name_encrypted FROM rooms WHERE id = ?',
                 (room_id,)
@@ -1741,18 +1514,6 @@ def on_change_nickname(data):
             message_id
         )
         
-        # Save to shared log
-        save_message_to_shared_log(
-            server_id,
-            room_id,
-            room_name,
-            {
-                'username': 'SYSTEM',
-                'message': system_message,
-                'message_type': 'system'
-            }
-        )
-        
         # Broadcast system message to all users in the room
         system_msg = {
             'id': message_id,
@@ -1787,28 +1548,26 @@ def default_error_handler(e):
     emit('error', {'error': 'An unexpected error occurred'})
 
 if __name__ == '__main__':
-    # Initialize database and logs directory
-    logger.info("Initializing database with SHARED LOGS & DUPLICATE PREVENTION...")
+    # Initialize database
+    logger.info("Initializing database with AES-GCM encryption...")
     init_db()
     
-    logger.info("Initializing shared logs directory...")
-    ensure_logs_directory()
-    
     logger.info("="*60)
-    logger.info("TERMINET IRC SERVER - SHARED LOGS & NO DUPLICATES")
+    logger.info("TERMINET IRC SERVER - AES-GCM & DATABASE ONLY")
     logger.info("="*60)
     logger.info(f"Server URL: http://localhost:5000")
-    logger.info(f"Database: {DATABASE} (ENCRYPTED + MESSAGE IDs)")
-    logger.info(f"Logs Directory: {LOGS_DIR}/server_{{id}}/ (SHARED ENCRYPTED)")
-    logger.info(f"Max messages per log file: {MAX_MESSAGES_PER_LOG}")
+    logger.info(f"Database: {DATABASE} (AES-GCM ENCRYPTED + MESSAGE IDs)")
+    logger.info(f"Storage: Database-only (no log files)")
+    logger.info(f"Encryption: AES-256-GCM")
     logger.info(f"Encryption Key: {CUSTOM_ENCRYPTION_KEY[:30]}...")
-    logger.info("FIXED ISSUES:")
-    logger.info("✅ No duplicate messages on refresh (unique message IDs)")
-    logger.info("✅ All users see same history (shared logs per room)")
-    logger.info("✅ Messages persist between sessions")
-    logger.info("✅ Join tracking still works perfectly")
+    logger.info("IMPROVEMENTS:")
+    logger.info("Ã¢Å“â€¦ AES-GCM encryption (more efficient than Fernet)")
+    logger.info("Ã¢Å“â€¦ Database-only storage (no log folder system)")
+    logger.info("Ã¢Å“â€¦ Smaller file size and reduced complexity")
+    logger.info("Ã¢Å“â€¦ No duplicate messages on refresh")
+    logger.info("Ã¢Å“â€¦ Join tracking still works perfectly")
     
-    logger.info("Starting FIXED server on port 5000...")
+    logger.info("Starting AES-GCM server on port 5000...")
     
     try:
         socketio.run(
@@ -1821,7 +1580,7 @@ if __name__ == '__main__':
         )
         
     except Exception as e:
-        logger.error(f"Failed to start FIXED server: {e}")
+        logger.error(f"Failed to start server: {e}")
         if "Permission denied" in str(e):
             logger.info("Try running as administrator or use a different port")
         elif "cryptography" in str(e):
