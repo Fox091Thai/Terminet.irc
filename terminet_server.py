@@ -1,5 +1,5 @@
 # terminet_server.py - Enhanced Flask Server with AES-GCM & Database-Only Storage
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, abort, send_file
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
@@ -18,13 +18,43 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.backends import default_backend
 import uuid
+from werkzeug.utils import secure_filename
+import mimetypes
+import shutil
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='.', template_folder='.')
-app.config['SECRET_KEY'] = 'terminet_secret_key_2024_http' #change this as you needed
+app.config['SECRET_KEY'] = 'your key here' #please change this as your key
+
+UPLOAD_FOLDER = 'uploads'
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
+MAX_TOTAL_FILES = 100
+ALLOWED_EXTENSIONS = {
+    # Images
+    'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico',
+    # Videos
+    'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', '3gp',
+    # Audio
+    'mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'wma',
+    # Documents
+    'txt', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+    'rtf', 'odt', 'ods', 'odp',
+    # Archives
+    'zip', 'rar', '7z', 'tar', 'gz',
+    # Code
+    'py', 'js', 'html', 'css', 'json', 'xml', 'csv',
+    'c', 'cpp', 'java', 'php', 'rb', 'go', 'rs', 'sh'
+}
+
+EMBEDDABLE_IMAGE_TYPES = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg'}
+EMBEDDABLE_VIDEO_TYPES = {'mp4', 'webm', 'mov', 'avi'}
+EMBEDDABLE_AUDIO_TYPES = {'mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'}
+EMBEDDABLE_TEXT_TYPES = {'txt', 'json', 'xml', 'csv', 'py', 'js', 'html', 'css'}
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # SocketIO Configuration for HTTP
 socketio = SocketIO(
@@ -43,8 +73,8 @@ socketio = SocketIO(
 DATABASE = 'terminet.db'
 
 # ENCRYPTION CONFIGURATION - AES-GCM
-CUSTOM_ENCRYPTION_KEY = "https://www.youtube.com/watch?v=zgoz4qKKdV8"  # change this as your key, is that daisy bell?
-SALT = b'terminet_salt_2024'  # change this as you needed
+CUSTOM_ENCRYPTION_KEY = "https://www.youtube.com/watch?v=zgoz4qKKdV8"  # is that daisy bell?
+SALT = b'terminet_salt_2024'  # Fixed salt for consistency
 
 class AESGCMManager:
     """Handles all AES-GCM encryption/decryption operations"""
@@ -255,7 +285,25 @@ def init_db():
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 )
             ''')
-            
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS files (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    file_id TEXT UNIQUE NOT NULL,
+                    server_id INTEGER NOT NULL,
+                    room_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    original_filename TEXT NOT NULL,
+                    stored_filename TEXT NOT NULL,
+                    file_path TEXT NOT NULL,
+                    file_size INTEGER NOT NULL,
+                    mime_type TEXT,
+                    file_type_category TEXT,
+                    uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE,
+                    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+            ''')
             # Create indexes for better performance
             indexes = [
                 'CREATE INDEX IF NOT EXISTS idx_users_unique_code ON users(unique_code)',
@@ -267,7 +315,10 @@ def init_db():
                 'CREATE INDEX IF NOT EXISTS idx_rooms_server ON rooms(server_id)',
                 'CREATE INDEX IF NOT EXISTS idx_messages_room ON messages(room_id)',
                 'CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)',
-                'CREATE INDEX IF NOT EXISTS idx_messages_message_id ON messages(message_id)'
+                'CREATE INDEX IF NOT EXISTS idx_messages_message_id ON messages(message_id)',
+                'CREATE INDEX IF NOT EXISTS idx_files_uploaded_at ON files(uploaded_at)',
+                'CREATE INDEX IF NOT EXISTS idx_files_server ON files(server_id)',
+                'CREATE INDEX IF NOT EXISTS idx_files_room ON files(room_id)',
             ]
             
             for index in indexes:
@@ -276,7 +327,7 @@ def init_db():
             conn.commit()
             
             # Check table counts
-            tables = ['users', 'servers', 'server_members', 'user_server_join_map', 'rooms', 'messages']
+            tables = ['users', 'servers', 'server_members', 'user_server_join_map', 'rooms', 'messages', 'files']
             for table in tables:
                 count = conn.execute(f'SELECT COUNT(*) FROM {table}').fetchone()[0]
                 logger.info(f"Table {table}: {count} records")
@@ -291,6 +342,62 @@ def generate_unique_code(length=8):
     """Generate cryptographically secure unique code"""
     characters = string.ascii_uppercase + string.digits
     return ''.join(secrets.choice(characters) for _ in range(length))
+
+def allowed_file(filename):
+    """Check if file extension is allowed"""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_file_type_category(filename):
+    """Get file type category for embedding"""
+    ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+    
+    if ext in EMBEDDABLE_IMAGE_TYPES:
+        return 'image'
+    elif ext in EMBEDDABLE_VIDEO_TYPES:
+        return 'video'
+    elif ext in EMBEDDABLE_AUDIO_TYPES:
+        return 'audio'
+    elif ext in EMBEDDABLE_TEXT_TYPES:
+        return 'text'
+    else:
+        return 'file'
+
+def cleanup_old_files():
+    """Remove oldest files when exceeding MAX_TOTAL_FILES limit"""
+    try:
+        with get_db() as conn:
+            # Count total files
+            count = conn.execute('SELECT COUNT(*) as count FROM files').fetchone()['count']
+            
+            if count >= MAX_TOTAL_FILES:
+                # Get oldest files to delete
+                files_to_delete = count - MAX_TOTAL_FILES + 1  # +1 for the new file
+                
+                old_files = conn.execute('''
+                    SELECT id, file_path FROM files 
+                    ORDER BY uploaded_at ASC 
+                    LIMIT ?
+                ''', (files_to_delete,)).fetchall()
+                
+                for file_record in old_files:
+                    try:
+                        # Delete from disk
+                        if os.path.exists(file_record['file_path']):
+                            os.remove(file_record['file_path'])
+                            logger.info(f"Deleted old file from disk: {file_record['file_path']}")
+                        
+                        # Delete from database
+                        conn.execute('DELETE FROM files WHERE id = ?', (file_record['id'],))
+                        
+                    except Exception as e:
+                        logger.error(f"Error deleting old file {file_record['id']}: {e}")
+                
+                conn.commit()
+                logger.info(f"Cleaned up {len(old_files)} old files")
+                
+    except Exception as e:
+        logger.error(f"Error in cleanup_old_files: {e}")
 
 def ensure_unique_code(table, column, length=8, max_attempts=50):
     """Ensure generated code is unique in database"""
@@ -368,7 +475,7 @@ active_users = {}
 room_users = {}
 
 def save_message_to_db(room_id, server_id, user_id, username, message, message_type='user', message_id=None):
-    """Save AES-GCM encrypted message to database with UNIQUE MESSAGE ID"""
+    """Save AES-GCM encrypted message to database with UNIQUE MESSAGE ID and 512 message limit per room"""
     try:
         if not message_id:
             message_id = str(uuid.uuid4())
@@ -385,10 +492,40 @@ def save_message_to_db(room_id, server_id, user_id, username, message, message_t
             ).fetchone()
             
             if not existing:
+                # CHECK MESSAGE COUNT AND ENFORCE 512 LIMIT
+                message_count = conn.execute(
+                    'SELECT COUNT(*) as count FROM messages WHERE room_id = ?',
+                    (room_id,)
+                ).fetchone()['count']
+                
+                # If we're at or over the limit, delete the oldest messages
+                if message_count >= 512:
+                    # Calculate how many messages to delete (keep room for the new one)
+                    messages_to_delete = message_count - 511  # 511 + 1 new = 512 total
+                    
+                    # Delete oldest messages by timestamp
+                    conn.execute('''
+                        DELETE FROM messages 
+                        WHERE room_id = ? 
+                        AND id IN (
+                            SELECT id FROM messages 
+                            WHERE room_id = ? 
+                            ORDER BY timestamp ASC 
+                            LIMIT ?
+                        )
+                    ''', (room_id, room_id, messages_to_delete))
+                    
+                    logger.info(f"Deleted {messages_to_delete} oldest messages from room {room_id} to maintain 512 limit")
+                
+                # Insert the new message
                 conn.execute('''
                     INSERT INTO messages (message_id, room_id, server_id, user_id, username_encrypted, message_encrypted, message_type)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 ''', (message_id, room_id, server_id, user_id, username_encrypted, message_encrypted, message_type))
+                
+                # Commit all changes
+                conn.commit()
+                
                 logger.debug(f"Saved AES-GCM encrypted message from {username} in room {room_id} with ID {message_id}")
             else:
                 logger.debug(f"Message {message_id} already exists, skipping duplicate")
@@ -396,37 +533,87 @@ def save_message_to_db(room_id, server_id, user_id, username, message, message_t
     except Exception as e:
         logger.error(f"Error saving AES-GCM encrypted message to database: {e}")
 
-def load_room_messages(room_id, limit=100):
-    """Load recent messages for a room from database - AES-GCM decrypt with IDs"""
+def load_room_messages(room_id, limit=512):
+    """Load recent messages for a room from database - AES-GCM decrypt with IDs and file handling (Resilient & Corrected)"""
     try:
         with get_db() as conn:
             messages = conn.execute('''
-                SELECT message_id, username_encrypted, message_encrypted, message_type, 
-                       strftime('%H:%M:%S', timestamp) as time
-                FROM messages 
-                WHERE room_id = ? 
-                ORDER BY timestamp DESC 
+                SELECT message_id, username_encrypted, message_encrypted, message_type,
+                       strftime('%H:%M:%S', timestamp) as time, user_id
+                FROM messages
+                WHERE room_id = ?
+                ORDER BY timestamp DESC
                 LIMIT ?
             ''', (room_id, limit)).fetchall()
-            
+
             result = []
+            # Reverse the messages here to process them in chronological order
             for msg in reversed(messages):
-                # Decrypt the data using AES-GCM
-                username = encryption_manager.decrypt_data(msg['username_encrypted'])
-                message_text = encryption_manager.decrypt_data(msg['message_encrypted'])
-                
-                result.append({
-                    'id': msg['message_id'],
-                    'type': msg['message_type'],
-                    'username': username,
-                    'message': message_text,
-                    'timestamp': msg['time']
-                })
+                try:
+                    # Decrypt the data using AES-GCM
+                    username = encryption_manager.decrypt_data(msg['username_encrypted'])
+                    message_text = encryption_manager.decrypt_data(msg['message_encrypted'])
+
+                    # Handle different message types
+                    if msg['message_type'] == 'file':
+                        if message_text.startswith('FILE_EMBED:'):
+                            file_data_json = message_text[11:]
+                            file_data = json.loads(file_data_json)
+                            result.append({
+                                'id': msg['message_id'],
+                                'type': 'file_embed',
+                                'username': username,
+                                'message': f"{username} uploaded {file_data.get('file_type', 'file')}: {file_data.get('filename', 'unknown')}",
+                                'file_data': file_data,
+                                'timestamp': msg['time'],
+                                'user_id': msg['user_id']
+                            })
+                        elif message_text.startswith('FILE_DOWNLOAD:'):
+                            parts = message_text.split(':', 3)
+                            if len(parts) >= 4:
+                                file_id, filename, download_url = parts[1], parts[2], parts[3]
+                                result.append({
+                                    'id': msg['message_id'],
+                                    'type': 'file',
+                                    'username': username,
+                                    'message': f"{username} uploaded a file: {filename} - Click to download",
+                                    'file_id': file_id,
+                                    'filename': filename,
+                                    'download_url': download_url,
+                                    'timestamp': msg['time'],
+                                    'user_id': msg['user_id']
+                                })
+                            else:
+                                raise ValueError("Malformed FILE_DOWNLOAD message")
+                        else:
+                            result.append({
+                                'id': msg['message_id'],
+                                'type': 'file',
+                                'username': username,
+                                'message': message_text,
+                                'timestamp': msg['time'],
+                                'user_id': msg['user_id']
+                            })
+                    else:
+                        # Regular message (user, system, etc.)
+                        result.append({
+                            'id': msg['message_id'],
+                            'type': msg['message_type'],
+                            'username': username,
+                            'message': message_text,
+                            'timestamp': msg['time'],
+                            'user_id': msg['user_id']  # <<< THIS IS THE FIX
+                        })
+                except Exception as e:
+                    # Log the error for the specific failed message and continue
+                    logger.error(f"Skipping corrupted or unreadable message (ID: {msg['message_id']}): {e}")
+                    continue  # Move to the next message
             return result
     except Exception as e:
-        logger.error(f"Error loading AES-GCM encrypted messages: {e}")
+        # This will catch broader errors like database connection issues
+        logger.error(f"Error loading messages for room {room_id}: {e}")
         return []
-
+    
 def leave_server(server_id, user_id):
     """User leaves server voluntarily"""
     try:
@@ -602,6 +789,227 @@ def api_login():
     except Exception as e:
         logger.error(f"Login error: {e}")
         return jsonify({'success': False, 'message': 'Login failed'}), 500
+    
+@app.route('/api/upload', methods=['POST'])
+def api_upload_file():
+    """Handle file uploads"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        user_id = request.form.get('user_id')
+        server_id = request.form.get('server_id')
+        room_id = request.form.get('room_id')
+        
+        if not all([user_id, server_id, room_id]):
+            return jsonify({'success': False, 'error': 'Missing required data'}), 400
+        
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        if not allowed_file(file.filename):
+            return jsonify({'success': False, 'error': 'File type not allowed'}), 400
+        
+        # Check file size
+        file.seek(0, os.SEEK_END)
+        file_size = file.tell()
+        file.seek(0)
+        
+        if file_size > MAX_FILE_SIZE:
+            return jsonify({'success': False, 'error': f'File too large. Maximum size is {MAX_FILE_SIZE // (1024*1024)} MB'}), 400
+        
+        if file_size == 0:
+            return jsonify({'success': False, 'error': 'Empty file not allowed'}), 400
+        
+        # Verify user has access to this room
+        with get_db() as conn:
+            access = conn.execute('''
+                SELECT 1 FROM rooms r
+                JOIN server_members sm ON r.server_id = sm.server_id
+                WHERE r.id = ? AND r.server_id = ? AND sm.user_id = ?
+            ''', (room_id, server_id, user_id)).fetchone()
+            
+            if not access:
+                return jsonify({'success': False, 'error': 'Access denied to this room'}), 403
+        
+        # Generate unique identifiers
+        file_id = str(uuid.uuid4())
+        original_filename = secure_filename(file.filename)
+        stored_filename = f"{file_id}_{original_filename}"
+        file_path = os.path.join(UPLOAD_FOLDER, stored_filename)
+        
+        # Get file info
+        mime_type, _ = mimetypes.guess_type(original_filename)
+        file_type_category = get_file_type_category(original_filename)
+        
+        # Clean up old files if needed
+        cleanup_old_files()
+        
+        # Save file to disk
+        file.save(file_path)
+        
+        # Save metadata to database
+        with get_db() as conn:
+            conn.execute('''
+                INSERT INTO files (file_id, server_id, room_id, user_id, original_filename, 
+                                 stored_filename, file_path, file_size, mime_type, file_type_category)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (file_id, server_id, room_id, user_id, original_filename, 
+                  stored_filename, file_path, file_size, mime_type, file_type_category))
+            conn.commit()
+        
+        logger.info(f"File uploaded successfully: {original_filename} ({file_size} bytes) by user {user_id}")
+        
+        return jsonify({
+            'success': True,
+            'file_id': file_id,
+            'filename': original_filename,
+            'size': file_size,
+            'type_category': file_type_category,
+            'download_url': f'/files/{file_id}'
+        })
+        
+    except Exception as e:
+        logger.error(f"File upload error: {e}")
+        return jsonify({'success': False, 'error': f'Upload failed: {str(e)}'}), 500
+
+@app.route('/files/<file_id>')
+def download_file(file_id):
+    """Download/serve uploaded files"""
+    try:
+        with get_db() as conn:
+            file_record = conn.execute('''
+                SELECT original_filename, stored_filename, file_path, mime_type
+                FROM files WHERE file_id = ?
+            ''', (file_id,)).fetchone()
+            
+            if not file_record:
+                abort(404)
+            
+            if not os.path.exists(file_record['file_path']):
+                logger.error(f"File not found on disk: {file_record['file_path']}")
+                abort(404)
+            
+            return send_file(
+                file_record['file_path'],
+                as_attachment=True,
+                download_name=file_record['original_filename'],
+                mimetype=file_record['mime_type']
+            )
+            
+    except Exception as e:
+        logger.error(f"File download error: {e}")
+        abort(500)
+
+# ADD THIS NEW SOCKET EVENT AFTER THE EXISTING SOCKET EVENTS
+
+@socketio.on('file_uploaded')
+def on_file_uploaded(data):
+    """Handle file upload notification and create appropriate message"""
+    try:
+        file_id = data.get('file_id')
+        user_id = data.get('user_id')
+        room_id = data.get('room_id')
+        server_id = data.get('server_id')
+        
+        if not all([file_id, user_id, room_id, server_id]):
+            emit('file_upload_error', {'error': 'Missing required data'})
+            return
+        
+        # Verify user is in the room
+        if request.sid not in active_users:
+            emit('file_upload_error', {'error': 'User not in room'})
+            return
+        
+        user_data = active_users[request.sid]
+        if user_data.get('room_id') != int(room_id):
+            emit('file_upload_error', {'error': 'User not in specified room'})
+            return
+        
+        # Get file information
+        with get_db() as conn:
+            file_record = conn.execute('''
+                SELECT original_filename, file_size, file_type_category, mime_type
+                FROM files WHERE file_id = ? AND user_id = ?
+            ''', (file_id, user_id)).fetchone()
+            
+            if not file_record:
+                emit('file_upload_error', {'error': 'File not found'})
+                return
+        
+        username = user_data['username']
+        filename = file_record['original_filename']
+        file_size_mb = round(file_record['file_size'] / (1024 * 1024), 2)
+        file_type = file_record['file_type_category']
+        download_url = f'/files/{file_id}'
+        
+        message_id = str(uuid.uuid4())
+        
+        # Create different message types based on file category
+        if file_type in ['image', 'video', 'audio', 'text']:
+            # For embeddable files, create a special message format
+            message_content = {
+                'type': 'file_embed',
+                'file_id': file_id,
+                'filename': filename,
+                'file_type': file_type,
+                'file_size': file_record['file_size'],
+                'mime_type': file_record['mime_type'],
+                'download_url': download_url,
+                'uploaded_by': username
+            }
+            message_text = f"FILE_EMBED:{json.dumps(message_content)}"
+            display_message = f"{username} uploaded {file_type}: {filename}"
+        else:
+            # For non-embeddable files, create download link message
+            message_text = f"FILE_DOWNLOAD:{file_id}:{filename}:{download_url}"
+            display_message = f"{username} uploaded a file: {filename} ({file_size_mb} MB) - Click to download: {download_url}"
+        
+        # Save to database
+        save_message_to_db(
+            room_id, 
+            server_id, 
+            user_id, 
+            username, 
+            message_text,
+            'file',
+            message_id
+        )
+        
+        # Broadcast message to room
+        if file_type in ['image', 'video', 'audio', 'text']:
+            # Send embeddable file message
+            file_msg = {
+                'id': message_id,
+                'type': 'file_embed',
+                'username': username,
+                'message': display_message,
+                'file_data': message_content,
+                'timestamp': datetime.now().strftime('%H:%M:%S'),
+                'user_id': user_id
+            }
+        else:
+            # Send regular file download message
+            file_msg = {
+                'id': message_id,
+                'type': 'file',
+                'username': username,
+                'message': display_message,
+                'file_id': file_id,
+                'filename': filename,
+                'download_url': download_url,
+                'timestamp': datetime.now().strftime('%H:%M:%S'),
+                'user_id': user_id
+            }
+        
+        emit('new_message', file_msg, room=f'room_{room_id}')
+        
+        logger.info(f"File upload notification sent: {filename} by {username} in room {room_id}")
+        
+    except Exception as e:
+        logger.error(f"Error handling file upload notification: {e}")
+        emit('file_upload_error', {'error': f'Failed to process file upload: {str(e)}'})
 
 # Socket.IO Events
 @socketio.on('connect')
@@ -1404,16 +1812,23 @@ def on_create_room(data):
         logger.error(f"Error creating room: {e}")
         emit('room_created', {'success': False, 'error': f'Failed to create room: {str(e)}'})
 
-@socketio.on('get_room_logs')  
+@socketio.on('get_room_logs')
 def on_get_room_logs(data):
     """Get room chat logs from database"""
+    
+    # ADD THIS LINE TO SEE WHAT THE CLIENT SENDS
+    print(f"--- DEBUG: Received get_room_logs request with data: {data} ---")
+
     try:
         user_id = data.get('user_id')
         server_id = data.get('server_id')
         room_id = data.get('room_id')
         room_name = data.get('room_name')
         limit = data.get('limit', 100)
-        
+
+        # ADD THIS LINE TO SEE THE room_id BEING USED
+        print(f"--- DEBUG: Attempting to load logs for room_id: {room_id} ---")
+
         logger.info(f"Loading logs for room {room_name} (ID: {room_id}) for user {user_id}")
         
         if not all([user_id, server_id, room_id]):
@@ -1540,6 +1955,114 @@ def on_change_nickname(data):
     except Exception as e:
         logger.error(f"Error changing nickname: {e}")
         emit('nickname_error', {'error': f'Failed to change nickname: {str(e)}'})
+    
+
+@socketio.on('file_uploaded')
+def on_file_uploaded(data):
+    """Handle file upload notification and create appropriate message"""
+    try:
+        file_id = data.get('file_id')
+        user_id = data.get('user_id')
+        room_id = data.get('room_id')
+        server_id = data.get('server_id')
+        
+        if not all([file_id, user_id, room_id, server_id]):
+            emit('file_upload_error', {'error': 'Missing required data'})
+            return
+        
+        # Verify user is in the room
+        if request.sid not in active_users:
+            emit('file_upload_error', {'error': 'User not in room'})
+            return
+        
+        user_data = active_users[request.sid]
+        if user_data.get('room_id') != int(room_id):
+            emit('file_upload_error', {'error': 'User not in specified room'})
+            return
+        
+        # Get file information
+        with get_db() as conn:
+            file_record = conn.execute('''
+                SELECT original_filename, file_size, file_type_category, mime_type
+                FROM files WHERE file_id = ? AND user_id = ?
+            ''', (file_id, user_id)).fetchone()
+            
+            if not file_record:
+                emit('file_upload_error', {'error': 'File not found'})
+                return
+        
+        username = user_data['username']
+        filename = file_record['original_filename']
+        file_size_mb = round(file_record['file_size'] / (1024 * 1024), 2)
+        file_type = file_record['file_type_category']
+        download_url = f'/files/{file_id}'
+        
+        message_id = str(uuid.uuid4())
+        
+        # Create different message types based on file category
+        if file_type in ['image', 'video', 'audio', 'text']:
+            # For embeddable files, create a special message format
+            message_content = {
+                'type': 'file_embed',
+                'file_id': file_id,
+                'filename': filename,
+                'file_type': file_type,
+                'file_size': file_record['file_size'],
+                'mime_type': file_record['mime_type'],
+                'download_url': download_url,
+                'uploaded_by': username
+            }
+            message_text = f"FILE_EMBED:{json.dumps(message_content)}"
+            display_message = f"{username} uploaded {file_type}: {filename}"
+        else:
+            # For non-embeddable files, create download link message
+            message_text = f"FILE_DOWNLOAD:{file_id}:{filename}:{download_url}"
+            display_message = f"{username} uploaded a file: {filename} ({file_size_mb} MB) - Click to download: {download_url}"
+        
+        # Save to database
+        save_message_to_db(
+            room_id, 
+            server_id, 
+            user_id, 
+            username, 
+            message_text,
+            'file',
+            message_id
+        )
+        
+        # Broadcast message to room
+        if file_type in ['image', 'video', 'audio', 'text']:
+            # Send embeddable file message
+            file_msg = {
+                'id': message_id,
+                'type': 'file_embed',
+                'username': username,
+                'message': display_message,
+                'file_data': message_content,
+                'timestamp': datetime.now().strftime('%H:%M:%S'),
+                'user_id': user_id
+            }
+        else:
+            # Send regular file download message
+            file_msg = {
+                'id': message_id,
+                'type': 'file',
+                'username': username,
+                'message': display_message,
+                'file_id': file_id,
+                'filename': filename,
+                'download_url': download_url,
+                'timestamp': datetime.now().strftime('%H:%M:%S'),
+                'user_id': user_id
+            }
+        
+        emit('new_message', file_msg, room=f'room_{room_id}')
+        
+        logger.info(f"File upload notification sent: {filename} by {username} in room {room_id}")
+        
+    except Exception as e:
+        logger.error(f"Error handling file upload notification: {e}")
+        emit('file_upload_error', {'error': f'Failed to process file upload: {str(e)}'})
 
 # Socket.IO Error handling
 @socketio.on_error_default
@@ -1555,25 +2078,17 @@ if __name__ == '__main__':
     logger.info("="*60)
     logger.info("TERMINET IRC SERVER - AES-GCM & DATABASE ONLY")
     logger.info("="*60)
-    logger.info(f"Server URL: http://localhost:5000")
     logger.info(f"Database: {DATABASE} (AES-GCM ENCRYPTED + MESSAGE IDs)")
     logger.info(f"Storage: Database-only (no log files)")
     logger.info(f"Encryption: AES-256-GCM")
     logger.info(f"Encryption Key: {CUSTOM_ENCRYPTION_KEY[:30]}...")
     logger.info("IMPROVEMENTS:")
-    logger.info("Ã¢Å“â€¦ AES-GCM encryption (more efficient than Fernet)")
-    logger.info("Ã¢Å“â€¦ Database-only storage (no log folder system)")
-    logger.info("Ã¢Å“â€¦ Smaller file size and reduced complexity")
-    logger.info("Ã¢Å“â€¦ No duplicate messages on refresh")
-    logger.info("Ã¢Å“â€¦ Join tracking still works perfectly")
-    
-    logger.info("Starting AES-GCM server on port 5000...")
     
     try:
         socketio.run(
             app,
             host='0.0.0.0',
-            port=5000,
+            port=80,
             debug=False,
             use_reloader=False,
             log_output=True
