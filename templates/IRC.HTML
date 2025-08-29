@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-<link href='https://fonts.googleapis.com/css?family=Kanit' rel='stylesheet'>
 
 <head>
     <meta charset="UTF-8">
@@ -15,7 +14,7 @@
         body {
             background-color: black;
             color: #e5ae73;
-            font-family: 'Kanit';
+            font: 1.3rem Inconsolata, monospace;
             margin: 0;
             display: flex;
             height: 100vh;
@@ -170,7 +169,7 @@
             padding: 8px;
             margin: 5px;
             cursor: pointer;
-            font-family: 'Courier New', monospace;
+            font: 1.3rem Inconsolata, monospace;
             font-size: 11px;
             font-weight: bold;
         }
@@ -211,7 +210,7 @@
             border: none;
             padding: 5px 10px;
             cursor: pointer;
-            font-family: 'Courier New', monospace;
+            font: 1.3rem Inconsolata, monospace;
             font-size: 10px;
             font-weight: bold;
         }
@@ -359,7 +358,7 @@
             color: #e5ae73;
             border: 1px solid #e5ae73;
             padding: 10px;
-            font-family: 'Courier New', monospace;
+            font: 1.3rem Inconsolata, monospace;
             font-size: 13px;
             outline: none;
             resize: none;
@@ -389,7 +388,7 @@
             border: none;
             padding: 10px 20px;
             cursor: pointer;
-            font-family: 'Courier New', monospace;
+            font: 1.3rem Inconsolata, monospace;
             font-weight: bold;
             height: fit-content;
             flex-shrink: 0;
@@ -521,7 +520,7 @@
             border: 1px solid #e5ae73;
             padding: 8px;
             margin: 5px 0;
-            font-family: 'Courier New', monospace;
+            font: 1.3rem Inconsolata, monospace;
         }
 
         .modal-buttons {
@@ -536,7 +535,7 @@
             padding: 8px 16px;
             margin-left: 10px;
             cursor: pointer;
-            font-family: 'Courier New', monospace;
+            font: 1.3rem Inconsolata, monospace;
             font-weight: bold;
         }
 
@@ -552,7 +551,7 @@
             right: 20px;
             padding: 10px 20px;
             border-radius: 4px;
-            font-family: 'Courier New', monospace;
+            font: 1.3rem Inconsolata, monospace;
             font-size: 12px;
             z-index: 2000;
             opacity: 0;
@@ -625,6 +624,105 @@
             z-index: 9999;
             pointer-events: none;
         }
+
+        .input-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .upload-btn {
+            background: #e5ae73;
+            color: rgb(0, 0, 0);
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font: 1.3rem Inconsolata, monospace;
+            font-weight: bold;
+            height: fit-content;
+            flex-shrink: 0;
+        }
+
+        .upload-btn:hover {
+            background: #45a049;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-progress {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: black;
+            border: 2px solid #e5ae73;
+            padding: 20px;
+            z-index: 2000;
+            min-width: 300px;
+            text-align: center;
+        }
+
+        .upload-progress.hidden {
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #333;
+            border: 1px solid #e5ae73;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #4CAF50;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .message.file {
+            color: #00bfff;
+            border-left: 3px solid #00bfff;
+            padding-left: 10px;
+            background: rgba(0, 191, 255, 0.1);
+        }
+
+        .embedded-content audio {
+            max-width: 100%;
+            width: 400px;
+        }
+
+        .text-preview {
+            background: #111;
+            border: 1px solid #e5ae73;
+            padding: 10px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            color: #ccc;
+        }
+
+        .file-download {
+            display: inline-block;
+            background: #e5ae73;
+            color: black;
+            padding: 5px 10px;
+            text-decoration: none;
+            border-radius: 3px;
+            margin: 5px 0;
+            font-size: 12px;
+        }
+
+        .file-download:hover {
+            background: #d19960;
+        }
     </style>
 </head>
 
@@ -636,7 +734,14 @@
         <div>Server ID: <span id="debug-server-id">-</span></div>
         <div>Room ID: <span id="debug-room-id">-</span></div>
     </div>
-
+    <div class="upload-progress hidden" id="upload-progress">
+        <h3>Uploading File...</h3>
+        <div id="upload-filename">filename.jpg</div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div id="upload-percentage">0%</div>
+    </div>
     <!-- Sidebar -->
     <div class="sidebar">
         <div class="logo-small">TERMINET.IRC</div>
@@ -685,11 +790,20 @@
             </div>
             <div class="chat-messages" id="chat-messages"></div>
             <div class="input-container">
+                <button class="upload-btn" onclick="triggerFileUpload()">Upload</button>
+
                 <textarea id="message-input" class="message-input" placeholder="Type message... (/help for commands)"
                     maxlength="1000" rows="1"></textarea>
+
                 <button class="send-btn" onclick="sendMessage()">SEND</button>
+
+                <input type="file" id="file-input" class="file-input" onchange="handleFileSelect(event)"
+                    accept="image/*,video/*,audio/*,.txt,.pdf,.doc,.docx,.zip,.rar">
             </div>
+            <input type="file" id="file-input" class="file-input" onchange="handleFileSelect(event)"
+                accept="image/*,video/*,audio/*,.txt,.pdf,.doc,.docx,.zip,.rar">
         </div>
+    </div>
     </div>
 
     <!-- Users Panel -->
@@ -902,6 +1016,10 @@
                 reconnectAttempts = 0;
                 updateDebugInfo();
                 setTimeout(loadUserServers, 500);
+            });
+            socket.on('file_upload_error', function (data) {
+                console.error('File upload error:', data);
+                showNotification('File upload error: ' + data.error, 'error');
             });
 
             socket.on('disconnect', function (reason) {
@@ -1167,14 +1285,19 @@
                 return;
             }
 
-            console.log('Loading room logs...');
-            socket.emit('get_room_logs', {
+            const logRequestData = {
                 user_id: currentUser.user_id,
                 server_id: currentServer.id,
                 room_id: currentRoom,
                 room_name: document.getElementById('chat-title').textContent.replace('#', ''),
                 limit: 100
-            });
+            };
+
+            // ADD THIS LINE TO SEE WHAT THE BROWSER SENDS
+            console.log('--- DEBUG: Sending get_room_logs request with data:', logRequestData);
+
+            console.log('Loading room logs...');
+            socket.emit('get_room_logs', logRequestData);
         }
 
         function renderServersList(ownedServers, joinedServers) {
@@ -1321,20 +1444,20 @@
             document.getElementById('create-room-btn').style.display = 'none';
         }
 
-        function renderMessages(messages) {
+        async function renderMessages(messages) {
             console.log('Rendering messages:', messages.length);
             const messagesContainer = document.getElementById('chat-messages');
             messagesContainer.innerHTML = '';
             roomUsers.clear();
 
-            messages.forEach(msg => {
-                addMessage(msg);
-            });
+            for (const msg of messages) {
+                await addMessage(msg);
+            }
 
             scrollToBottom();
         }
 
-        function addMessage(data) {
+        async function addMessage(data) {
             const messagesContainer = document.getElementById('chat-messages');
             const messageEl = document.createElement('div');
             messageEl.className = `message ${data.type}`;
@@ -1345,12 +1468,25 @@
 
             let content = '';
             if (data.type === 'system') {
-                content = `<span class="timestamp">[${data.timestamp}]</span> <em>*** ${data.message}</em>`;
+                // Check for file upload system messages and add download links
+                let systemMessage = data.message;
+                const fileUploadMatch = systemMessage.match(/uploaded (image|video|audio|text|file): (.+)/);
+                if (fileUploadMatch && data.file_id) {
+                    const fileType = fileUploadMatch[1];
+                    const filename = fileUploadMatch[2];
+                    systemMessage = `uploaded ${fileType}: <a href="/files/${data.file_id}" class="file-download" target="_blank">${filename}</a>`;
+                }
+                content = `<span class="timestamp">[${data.timestamp}]</span> <em>*** ${systemMessage}</em>`;
             } else if (data.type === 'private') {
-                const processedMessage = processMessage(data.message);
+                const processedMessage = await processMessage(data.message);
                 content = `<span class="timestamp">[${data.timestamp}]</span> <span style="color: #ff6b9d;">[PRIVATE]</span> <span class="username">&lt;${data.username}&gt;</span> ${processedMessage}`;
+            } else if (data.type === 'file_embed') {
+                const embedContent = await createFileEmbed(data.file_data);
+                content = `<span class="timestamp">[${data.timestamp}]</span> <span class="username">&lt;${data.username}&gt;</span> ${embedContent}`;
+            } else if (data.type === 'file') {
+                content = `<span class="timestamp">[${data.timestamp}]</span> <span class="username">&lt;${data.username}&gt;</span> <a href="${data.download_url}" class="file-download" target="_blank">📎 ${data.filename}</a>`;
             } else {
-                const processedMessage = processMessage(data.message);
+                const processedMessage = await processMessage(data.message);
                 content = `<span class="timestamp">[${data.timestamp}]</span> <span class="username">&lt;${data.username}&gt;</span> ${processedMessage}`;
             }
 
@@ -1359,7 +1495,7 @@
             scrollToBottom();
         }
 
-        function processMessage(message) {
+        async function processMessage(message) {
             // Process HTML tags first
             let processedMsg = processHtmlTags(message);
 
@@ -1648,13 +1784,10 @@
             };
             addMessage(helpMsg);
         }
-        function escapeHtml(str) {
-            return String(str)
-                .replaceAll('&', '&amp;')
-                .replaceAll('<', '&lt;')
-                .replaceAll('>', '&gt;')
-                .replaceAll('"', '&quot;')
-                .replaceAll("'", '&#39;');
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
         function scrollToBottom() {
             const container = document.getElementById('chat-messages');
@@ -1975,6 +2108,184 @@
             }
             updateDebugInfo();
         }, 10000);
+
+        // File upload functions
+        function triggerFileUpload() {
+            if (!currentRoom || !currentServer) {
+                showNotification('Please select a room first', 'error');
+                return;
+            }
+            document.getElementById('file-input').click();
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Check file size (50MB limit)
+            const maxSize = 50 * 1024 * 1024;
+            if (file.size > maxSize) {
+                showNotification('File too large. Maximum size is 50MB', 'error');
+                return;
+            }
+
+            uploadFile(file);
+        }
+        async function processMessage(message) {
+            // Handle file embeds
+            if (message.startsWith('FILE_EMBED:')) {
+                try {
+                    const fileData = JSON.parse(message.substring(11));
+                    return await createFileEmbed(fileData);
+                } catch (e) {
+                    return message;
+                }
+            }
+
+            // Handle file downloads
+            if (message.startsWith('FILE_DOWNLOAD:')) {
+                const parts = message.split(':');
+                if (parts.length >= 4) {
+                    const fileId = parts[1];
+                    const filename = parts[2];
+                    const downloadUrl = parts[3];
+                    return `<a href="${downloadUrl}" class="file-download" target="_blank">📎 ${filename}</a>`;
+                }
+            }
+
+            // Process HTML tags first
+            let processedMsg = processHtmlTags(message);
+
+            // Auto-embed images and GIFs
+            if (message.startsWith('/gif ') || message.startsWith('/img ')) {
+                const url = message.substring(5).trim();
+                if (isValidImageUrl(url)) {
+                    return `<div class="embedded-content"><img src="${url}" alt="Image" onerror="this.style.display='none'" loading="lazy"></div>`;
+                }
+                return processedMsg;
+            }
+
+            // Auto-embed videos
+            if (message.startsWith('/video ')) {
+                const url = message.substring(7).trim();
+                if (isYouTubeUrl(url)) {
+                    const videoId = extractYouTubeId(url);
+                    return `<div class="embedded-content"><iframe src="https://www.youtube.com/embed/${videoId}" allowfullscreen></iframe></div>`;
+                } else if (isValidVideoUrl(url)) {
+                    return `<div class="embedded-content"><video controls><source src="${url}"></video></div>`;
+                }
+                return processedMsg;
+            }
+
+            // Check for direct image/video URLs
+            const urlMatch = message.match(/https?:\/\/[^\s]+/g);
+            if (urlMatch) {
+                urlMatch.forEach(url => {
+                    if (isValidImageUrl(url)) {
+                        processedMsg = processedMsg.replace(url,
+                            `${url}<div class="embedded-content"><img src="${url}" alt="Image" onerror="this.style.display='none'" loading="lazy"></div>`
+                        );
+                    } else if (isYouTubeUrl(url)) {
+                        const videoId = extractYouTubeId(url);
+                        processedMsg = processedMsg.replace(url,
+                            `${url}<div class="embedded-content"><iframe src="https://www.youtube.com/embed/${videoId}" allowfullscreen></iframe></div>`
+                        );
+                    } else if (isValidVideoUrl(url)) {
+                        processedMsg = processedMsg.replace(url,
+                            `${url}<div class="embedded-content"><video controls><source src="${downloadUrl}"></video></div>`
+                        );
+                    }
+                });
+            }
+
+            return processedMsg;
+        }
+
+        async function createFileEmbed(fileData) {
+            const downloadUrl = fileData.download_url;
+            const filename = fileData.filename;
+            const fileType = fileData.file_type;
+
+            switch (fileType) {
+                case 'image':
+                    return `<div class="embedded-content"><img src="${downloadUrl}" alt="${filename}" loading="lazy"></div>`;
+                case 'video':
+                    return `<div class="embedded-content"><video controls><source src="${downloadUrl}"></video></div>`;
+                case 'audio':
+                    return `<div class="embedded-content"><audio controls><source src="${downloadUrl}"></audio></div>`;
+                case 'text':
+                    // Fetch and display text content with download link
+                    try {
+                        const response = await fetch(downloadUrl);
+                        const textContent = await response.text();
+                        const truncated = textContent.length > 1000 ? textContent.substring(0, 1000) + '...' : textContent;
+                        return `<div class="text-preview">${escapeHtml(truncated)}</div><a href="${downloadUrl}" class="file-download" target="_blank">Download ${filename}</a>`;
+                    } catch (e) {
+                        return `<a href="${downloadUrl}" class="file-download" target="_blank">📄 ${filename}</a>`;
+                    }
+                default:
+                    return `<a href="${downloadUrl}" class="file-download" target="_blank">📎 ${filename}</a>`;
+            }
+        }
+        function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('user_id', currentUser.user_id);
+            formData.append('server_id', currentServer.id);
+            formData.append('room_id', currentRoom);
+
+            const progressModal = document.getElementById('upload-progress');
+            const progressFill = document.getElementById('progress-fill');
+            const progressText = document.getElementById('upload-percentage');
+            const filenameText = document.getElementById('upload-filename');
+
+            filenameText.textContent = file.name;
+            progressModal.classList.remove('hidden');
+
+            const xhr = new XMLHttpRequest();
+
+            xhr.upload.addEventListener('progress', function (e) {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    progressFill.style.width = percentComplete + '%';
+                    progressText.textContent = Math.round(percentComplete) + '%';
+                }
+            });
+
+            xhr.addEventListener('load', function () {
+                progressModal.classList.add('hidden');
+
+                if (xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.success) {
+                        // Notify backend about the successful upload
+                        socket.emit('file_uploaded', {
+                            file_id: response.file_id,
+                            user_id: currentUser.user_id,
+                            room_id: currentRoom,
+                            server_id: currentServer.id
+                        });
+                        showNotification('File uploaded successfully!', 'success');
+                    } else {
+                        showNotification('Upload failed: ' + response.error, 'error');
+                    }
+                } else {
+                    showNotification('Upload failed: Server error', 'error');
+                }
+
+                // Clear file input
+                document.getElementById('file-input').value = '';
+            });
+
+            xhr.addEventListener('error', function () {
+                progressModal.classList.add('hidden');
+                showNotification('Upload failed: Network error', 'error');
+                document.getElementById('file-input').value = '';
+            });
+
+            xhr.open('POST', '/api/upload', true);
+            xhr.send(formData);
+        }
 
     </script>
 </body>
