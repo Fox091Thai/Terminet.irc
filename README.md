@@ -7,7 +7,7 @@ Features:
 - questionable security for log in: because since it's a little project so you no need to use your EMAIL or Phone number, so when you need to create your account it only requires username and password then after you registered the terminet will give you a unique code which is you need to keep it because there's no way to recovery your unique code
 - Message logging for 512 messages and files keeping for 512 files before roll out: Because of terminet is just a simple IRC with basic functions so you no need to worry about your storage that much cuz i think 10 people with 10 server on DB might take space like under 25GB (include 512 uploaded files 50MB max) maybe? not quite sure, never tested before
 - Message Logging: Encrypted message logs stored per-user, per-room: that is
-- Old ICR style interface
+- Old IRC style interface
 - /img <link> /GIF <link> /Video <link> /help command
 - Files uploading
 - simple to use?
