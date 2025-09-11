@@ -70,6 +70,22 @@
             text-align: center;
         }
 
+        .room-item {
+            font-size: 16px;
+        }
+
+        .room-item:hover {
+            background: #ffd59b;
+            color: #e5ae73;
+        }
+
+        /* Room items - selected state */
+        .room-item.active {
+            background: #ffe2c3;
+            color: black;
+            border-color: #e5ae73;
+        }
+
         .server-item {
             background: #e5ae73;
             color: black;
@@ -135,19 +151,19 @@
 
         .room-item {
             background: transparent;
-            color: #e5ae73;
+            color: #000000;
             margin: 2px 10px;
             padding: 8px 10px;
             cursor: pointer;
             font-size: 11px;
-            border: 1px solid #666;
+            border: 1px solid #000000;
             position: relative;
             word-wrap: break-word;
             overflow-wrap: break-word;
         }
 
         .room-item:hover {
-            background: #333;
+            background: #545454;
         }
 
         .room-item.active {
@@ -263,7 +279,7 @@
         }
 
         .embedded-content {
-            margin: 10px 0;
+            margin: 2px 0;
             max-width: 100%;
             display: flex;
             justify-content: flex-start;
@@ -632,19 +648,20 @@
         }
 
         .upload-btn {
-            background: #e5ae73;
-            color: rgb(0, 0, 0);
+            background: #6a6a6a;
+            color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 0 15px;
             cursor: pointer;
             font: 1.3rem Inconsolata, monospace;
             font-weight: bold;
-            height: fit-content;
+            height: 42px;
             flex-shrink: 0;
+            align-self: flex-end;
         }
 
         .upload-btn:hover {
-            background: #45a049;
+            background: #8a8a8a;
         }
 
         .file-input {
@@ -727,7 +744,6 @@
 </head>
 
 <body>
-    <!-- Debug Info -->
     <div class="debug-info" id="debug-info" style="display: none;">
         <div>Socket: <span id="socket-state">Not connected</span></div>
         <div>User ID: <span id="debug-user-id">-</span></div>
@@ -742,10 +758,9 @@
         </div>
         <div id="upload-percentage">0%</div>
     </div>
-    <!-- Sidebar -->
     <div class="sidebar">
         <div class="logo-small">TERMINET.IRC</div>
-        <div class="tagline">if it worked, it's a miracle.</div>
+        <div class="tagline">if it works,it's a miracle</div>
         <div class="user-info">
             <div>User: <span id="current-username">Loading...</span></div>
             <div>@ <span id="current-room">#general</span></div>
@@ -766,17 +781,12 @@
         <button class="sidebar-btn" onclick="logout()">Logout</button>
     </div>
 
-    <!-- Main Content -->
     <div class="main-content">
         <div id="welcome-screen" class="welcome-screen">
-            <h2>Welcome to Terminet IRC!</h2>
+            <h2>Welcome to:</h2>
+            <div class="logo-small" style="font-size: 72px; font-style: italic; margin-bottom: 10px;">TERMINET.IRC</div>
             <p>Create or join a server to start chatting.</p>
             <br>
-            <div style="font-size: 12px; opacity: 0.7;">
-                <div>Server Status: <span id="server-status">Checking...</span></div>
-                <div>Database: <span id="db-status">Unknown</span></div>
-                <div>Logs: <span id="logs-status">Unknown</span></div>
-            </div>
         </div>
 
         <div id="chat-container" style="display: none; flex-direction: column; height: 100%;">
@@ -790,34 +800,24 @@
             </div>
             <div class="chat-messages" id="chat-messages"></div>
             <div class="input-container">
-                <button class="upload-btn" onclick="triggerFileUpload()">Upload</button>
-
+                <button class="upload-btn" onclick="triggerFileUpload()">&#x2191;</button>
                 <textarea id="message-input" class="message-input" placeholder="Type message... (/help for commands)"
                     maxlength="1000" rows="1"></textarea>
-
                 <button class="send-btn" onclick="sendMessage()">SEND</button>
-
-                <input type="file" id="file-input" class="file-input" onchange="handleFileSelect(event)"
-                    accept="image/*,video/*,audio/*,.txt,.pdf,.doc,.docx,.zip,.rar">
+                <input type="file" id="file-input" class="file-input" onchange="handleFileSelect(event)">
             </div>
-            <input type="file" id="file-input" class="file-input" onchange="handleFileSelect(event)"
-                accept="image/*,video/*,audio/*,.txt,.pdf,.doc,.docx,.zip,.rar">
         </div>
     </div>
-    </div>
 
-    <!-- Users Panel -->
     <div class="users-panel" id="users-panel" style="display: none;">
         <div class="users-header">Users Online</div>
         <div class="users-list" id="users-list"></div>
     </div>
 
-    <!-- Connection Status -->
     <div class="connection-status connecting" id="connection-status">
         <span id="status-text">Connecting...</span>
     </div>
 
-    <!-- Modals -->
     <div id="create-server-modal" class="modal">
         <div class="modal-content">
             <h3>Create Server</h3>
@@ -875,7 +875,6 @@
         </div>
     </div>
 
-    <!-- Socket.IO -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
 
     <script>
@@ -887,9 +886,7 @@
         let reconnectAttempts = 0;
         let maxReconnectAttempts = 5;
         let debugMode = false;
-        let roomUsers = new Set();
 
-        // Initialize
         document.addEventListener('DOMContentLoaded', function () {
             console.log('DOM loaded, initializing...');
             const userData = sessionStorage.getItem('terminet_user');
@@ -908,7 +905,7 @@
             setTimeout(() => {
                 initializeSocket();
                 setupInputHandlers();
-            }, 1000);
+            }, 500);
         });
 
         function setupInputHandlers() {
@@ -940,20 +937,7 @@
 
         function autoResizeTextarea(textarea) {
             textarea.style.height = 'auto';
-            const lineHeight = 22;
-            const padding = 20;
-            const maxLines = 4;
-            const minLines = 1;
-            const scrollHeight = textarea.scrollHeight;
-            const currentLines = Math.floor((scrollHeight - padding) / lineHeight);
-
-            if (currentLines <= maxLines) {
-                textarea.style.height = Math.max(scrollHeight, lineHeight * minLines + padding) + 'px';
-                textarea.style.overflowY = 'hidden';
-            } else {
-                textarea.style.height = (lineHeight * maxLines + padding) + 'px';
-                textarea.style.overflowY = 'auto';
-            }
+            textarea.style.height = (textarea.scrollHeight) + 'px';
         }
 
         function checkServerHealth() {
@@ -964,7 +948,7 @@
                     console.log('Health check response:', data);
                     document.getElementById('server-status').textContent = data.status;
                     document.getElementById('db-status').textContent = data.database;
-                    document.getElementById('logs-status').textContent = data.logs_dir ? 'Ready' : 'Not configured';
+                    document.getElementById('logs-status').textContent = data.storage;
                 })
                 .catch(error => {
                     console.error('Health check failed:', error);
@@ -1017,10 +1001,6 @@
                 updateDebugInfo();
                 setTimeout(loadUserServers, 500);
             });
-            socket.on('file_upload_error', function (data) {
-                console.error('File upload error:', data);
-                showNotification('File upload error: ' + data.error, 'error');
-            });
 
             socket.on('disconnect', function (reason) {
                 console.log('Socket disconnected:', reason);
@@ -1047,7 +1027,6 @@
                 showNotification('Connected to Terminet IRC', 'success');
             });
 
-            // Server events
             socket.on('servers_list', function (data) {
                 console.log('Received servers list:', data);
                 renderServersList(data.owned_servers || [], data.joined_servers || []);
@@ -1083,9 +1062,13 @@
                     renderServerData(data.server, data.rooms);
                     updateDebugInfo();
 
-                    const generalRoom = data.rooms.find(room => room.name === 'general');
-                    if (generalRoom) {
-                        joinRoom(generalRoom.id, generalRoom.name);
+                    const serverActions = document.getElementById('server-actions');
+                    if (isOwner) {
+                        serverActions.innerHTML = `
+                <button class="header-btn" onclick="confirmDeleteServer(${currentServer.id}, '${currentServer.name}')">Delete Server</button>
+            `;
+                    } else {
+                        serverActions.innerHTML = '';
                     }
                 } else {
                     showNotification('Failed to load server: ' + data.error, 'error');
@@ -1096,12 +1079,12 @@
                 console.log('Server deleted:', data);
                 if (data.success) {
                     showNotification('Server deleted successfully', 'success');
-                    loadUserServers();
-                    if (currentServer) {
+                    if (currentServer && currentServer.id === data.server_id) {
                         currentServer = null;
                         currentRoom = null;
                         showWelcomeScreen();
                     }
+                    loadUserServers();
                 } else {
                     showNotification('Failed to delete server: ' + data.error, 'error');
                 }
@@ -1122,19 +1105,34 @@
                 }
             });
 
-            // Room events
             socket.on('room_joined', function (data) {
                 console.log('Room joined:', data);
                 currentRoom = data.room_id;
                 document.getElementById('current-room').textContent = '#' + data.room_name;
                 document.getElementById('chat-title').textContent = '#' + data.room_name;
                 updateDebugInfo();
-
-                roomUsers.clear();
                 showChatContainer();
                 renderMessages(data.messages || []);
-            });
 
+                let isOwner = currentServer && currentServer.owner_id === currentUser.user_id;
+
+                switch (data.is_locked) {
+                    case 4:
+                        updateInputState(false, "This channel is read-only");
+                        break;
+                    case 3:
+                        updateInputState(isOwner, isOwner ? "Only you can type here" : "This channel is read-only");
+                        break;
+                    case 1: 
+                        updateInputState(isOwner, isOwner ? "Channel is locked, but you can type" : "This channel is locked");
+                        break;
+
+                    case 0:
+                    default:
+                        updateInputState(true);
+                        break;
+                }
+            });
             socket.on('room_created', function (data) {
                 console.log('Room created:', data);
                 if (data.success) {
@@ -1170,7 +1168,6 @@
                 }
             });
 
-            // Message events
             socket.on('new_message', function (data) {
                 console.log('New message:', data);
                 addMessage(data);
@@ -1183,9 +1180,23 @@
 
             socket.on('users_list', function (data) {
                 console.log('Users list received:', data.users);
+                renderUsersList(data.users || []);
+            });
 
-                roomUsers = new Set(data.users || []);
-                renderUsersList(Array.from(roomUsers));
+            socket.on('nickname_changed', function (data) {
+                console.log('Nickname changed successfully:', data);
+                if (data.success) {
+                    currentUser.username = data.new_nick;
+                    document.getElementById('current-username').textContent = data.new_nick;
+                    sessionStorage.setItem('terminet_user', JSON.stringify(currentUser));
+                    showNotification('Nickname changed successfully!', 'success');
+                    closeModal('nick-modal');
+                }
+            });
+
+            socket.on('nickname_error', function (data) {
+                console.error('Nickname change error:', data);
+                showNotification('Nickname change failed: ' + data.error, 'error');
             });
 
             socket.on('room_error', function (data) {
@@ -1198,44 +1209,31 @@
                 showNotification('Message error: ' + data.error, 'error');
             });
 
+            socket.on('file_upload_error', function (data) {
+                console.error('File upload error:', data);
+                showNotification('File upload error: ' + data.error, 'error');
+            });
+
             socket.on('error', function (error) {
                 console.error('Socket error:', error);
                 showNotification('Connection error occurred', 'error');
             });
 
-            // Kick handlers
+          
             socket.on('kicked_from_server_reload', function (data) {
                 console.log('Kicked from server with reload instruction:', data);
                 showNotification(data.message, 'error');
 
-                currentServer = null;
-                currentRoom = null;
-                roomUsers.clear();
-
-                alert(`${data.message}\n\nYou will be redirected to the main screen.`);
-                showWelcomeScreen();
+                if (currentServer && currentServer.id === data.server_id) {
+                    currentServer = null;
+                    currentRoom = null;
+                    alert(`${data.message}\n\nYou will be returned to the main screen.`);
+                    showWelcomeScreen();
+                }
 
                 setTimeout(() => {
                     loadUserServers();
                 }, 1000);
-            });
-
-            socket.on('kicked_from_server', function (data) {
-                console.log('Kicked from server (fallback):', data);
-                showNotification('You have been kicked from this server!', 'error');
-
-                currentServer = null;
-                currentRoom = null;
-                roomUsers.clear();
-
-                showWelcomeScreen();
-                setTimeout(() => {
-                    loadUserServers();
-                }, 1000);
-            });
-            socket.on('users_list', function (data) {
-                console.log('Users list:', data);
-                renderUsersList(data.users || []);
             });
 
             socket.on('kick_result', function (data) {
@@ -1246,6 +1244,76 @@
                     showNotification('Kick failed: ' + data.error, 'error');
                 }
             });
+            socket.on('channel_lock_status', function (data) {
+                console.log('Channel lock status changed:', data);
+
+                if (currentRoom === data.room_id) {
+                    updateInputState(!data.locked || (currentServer && currentServer.owner_id === currentUser.user_id));
+                    showNotification(data.message, data.locked ? 'error' : 'success');
+                }
+            });
+
+            /**
+ * Enables or disables the chat input area and updates its placeholder text.
+ * @param {boolean} enabled - True to enable the input, false to disable.
+ * @param {string} [message="Type message... (/help for commands)"] - The placeholder text to display.
+ */
+            function updateInputState(enabled, message = "Type message... (/help for commands)") {
+                const messageInput = document.getElementById('message-input');
+                const sendBtn = document.querySelector('.send-btn');
+                const uploadBtn = document.querySelector('.upload-btn');
+
+                if (enabled) {
+                    messageInput.disabled = false;
+                    messageInput.placeholder = message;
+                    sendBtn.disabled = false;
+                    uploadBtn.disabled = false;
+                    sendBtn.style.opacity = '1';
+                    uploadBtn.style.opacity = '1';
+                } else {
+                    messageInput.disabled = true;
+                    messageInput.placeholder = message;
+                    sendBtn.disabled = true;
+                    uploadBtn.disabled = true;
+                    sendBtn.style.opacity = '0.5';
+                    uploadBtn.style.opacity = '0.5';
+                }
+            }
+
+            function joinRoom(roomId, roomName) {
+                console.log('Joining room:', roomId, roomName);
+
+                if (socket && socket.connected) {
+                    socket.emit('join_room', {
+                        room_id: roomId,
+                        user_id: currentUser.user_id,
+                        username: currentUser.username
+                    });
+
+                    if (roomName.toLowerCase() === 'welcome') {
+                        updateInputState(false);
+                    } else if (roomName.toLowerCase() === 'rules') {
+
+                        updateInputState(currentServer && currentServer.owner_id === currentUser.user_id);
+                    } else {
+
+                        socket.emit('get_room_lock_status', {
+                            room_id: roomId,
+                            server_id: currentServer.id
+                        });
+                    }
+                }
+            }
+
+
+            socket.on('room_lock_status', function (data) {
+                if (data.success && data.room_id === currentRoom) {
+                    updateInputState(!data.locked);
+                }
+            });
+
+
+
         }
 
         function updateConnectionStatus(status) {
@@ -1275,7 +1343,6 @@
                 });
             } else {
                 console.error('Cannot load servers: socket not connected or no user');
-                setTimeout(loadUserServers, 2000);
             }
         }
 
@@ -1292,10 +1359,6 @@
                 room_name: document.getElementById('chat-title').textContent.replace('#', ''),
                 limit: 100
             };
-
-            // ADD THIS LINE TO SEE WHAT THE BROWSER SENDS
-            console.log('--- DEBUG: Sending get_room_logs request with data:', logRequestData);
-
             console.log('Loading room logs...');
             socket.emit('get_room_logs', logRequestData);
         }
@@ -1310,39 +1373,33 @@
                 return;
             }
 
-            // Render owned servers
             ownedServers.forEach(server => {
                 const serverEl = document.createElement('div');
                 serverEl.className = 'server-item';
+                serverEl.id = `server-item-${server.id}`;
                 serverEl.innerHTML = `
                     <strong>${server.name}</strong><br>
                     <small>Code: ${server.code} (Owner)</small>
                     <div class="server-actions">
-                        <button class="action-btn delete" onclick="confirmDeleteServer(${server.id}, '${server.name}')">DEL</button>
+                        <button class="action-btn delete" onclick="event.stopPropagation(); confirmDeleteServer(${server.id}, '${server.name}')">DEL</button>
                     </div>
                 `;
-                serverEl.onclick = (e) => {
-                    if (e.target.classList.contains('action-btn')) return;
-                    selectServer(server, serverEl);
-                };
+                serverEl.onclick = () => selectServer(server, serverEl);
                 serversList.appendChild(serverEl);
             });
 
-            // Render joined servers
             joinedServers.forEach(server => {
                 const serverEl = document.createElement('div');
                 serverEl.className = 'server-item';
+                serverEl.id = `server-item-${server.id}`;
                 serverEl.innerHTML = `
                     <strong>${server.name}</strong><br>
                     <small>Code: ${server.code}</small>
                     <div class="server-actions">
-                        <button class="action-btn leave" onclick="confirmLeaveServer(${server.id}, '${server.name}')">LEAVE</button>
+                        <button class="action-btn leave" onclick="event.stopPropagation(); confirmLeaveServer(${server.id}, '${server.name}')">LEAVE</button>
                     </div>
                 `;
-                serverEl.onclick = (e) => {
-                    if (e.target.classList.contains('action-btn')) return;
-                    selectServer(server, serverEl);
-                };
+                serverEl.onclick = () => selectServer(server, serverEl);
                 serversList.appendChild(serverEl);
             });
         }
@@ -1350,8 +1407,9 @@
         function selectServer(server, element) {
             console.log('Selecting server:', server);
             document.querySelectorAll('.server-item').forEach(el => el.classList.remove('active'));
-            element.classList.add('active');
-
+            if (element) {
+                element.classList.add('active');
+            }
             loadServerData(server.id);
         }
 
@@ -1368,37 +1426,37 @@
         function renderServerData(server, rooms) {
             console.log('Rendering server data:', server, rooms);
             const createRoomBtn = document.getElementById('create-room-btn');
-            if (server.owner_id === currentUser.user_id) {
-                createRoomBtn.style.display = 'block';
-            } else {
-                createRoomBtn.style.display = 'none';
-            }
+            createRoomBtn.style.display = server.owner_id === currentUser.user_id ? 'block' : 'none';
 
-            // Remove existing rooms container
-            const existingRooms = document.querySelector('.rooms-container');
-            if (existingRooms) {
-                existingRooms.remove();
-            }
+            const activeServerEl = document.getElementById(`server-item-${server.id}`);
+            if (!activeServerEl) return;
 
-            const serversList = document.getElementById('servers-list');
+            const existingRooms = activeServerEl.querySelector('.rooms-container');
+            if (existingRooms) existingRooms.remove();
+
             const roomsContainer = document.createElement('div');
             roomsContainer.className = 'rooms-container';
-            roomsContainer.innerHTML = '<div style="padding: 5px 10px; font-weight: bold; font-size: 12px; color: #e5ae73; border-top: 1px solid #666; margin-top: 10px;">Rooms:</div>';
+            roomsContainer.innerHTML = '<div style="padding: 5px 10px; font-weight: bold; font-size: 12px; color: #000000; border-top: 7px solid #666; margin-top: 10px;">Rooms:</div>';
 
             rooms.forEach(room => {
                 const roomEl = document.createElement('div');
                 roomEl.className = 'room-item';
+                roomEl.id = `room-item-${room.id}`;
 
                 let roomActions = '';
-                if (server.owner_id === currentUser.user_id && room.name !== 'general') {
+                if (server.owner_id === currentUser.user_id && !room.is_special) {
                     roomActions = `<div class="room-actions">
-                        <button class="action-btn delete" onclick="confirmDeleteRoom(${room.id}, '${room.name}')">DEL</button>
-                    </div>`;
+                <button class="action-btn delete" onclick="event.stopPropagation(); confirmDeleteRoom(${room.id}, '${room.name}')">DEL</button>
+            </div>`;
                 }
 
-                roomEl.innerHTML = `#${room.name}${roomActions}`;
-                roomEl.onclick = (e) => {
-                    if (e.target.classList.contains('action-btn')) return;
+                let roomNameDisplay = room.name;
+                if (room.is_special) {
+                    roomNameDisplay = ` ${room.name}`;
+                }
+
+                roomEl.innerHTML = `#${roomNameDisplay}${roomActions}`;
+                roomEl.onclick = () => {
                     document.querySelectorAll('.room-item').forEach(el => el.classList.remove('active'));
                     roomEl.classList.add('active');
                     joinRoom(room.id, room.name);
@@ -1406,7 +1464,7 @@
                 roomsContainer.appendChild(roomEl);
             });
 
-            serversList.appendChild(roomsContainer);
+            activeServerEl.appendChild(roomsContainer);
         }
 
         function joinRoom(roomId, roomName) {
@@ -1418,73 +1476,213 @@
                     user_id: currentUser.user_id,
                     username: currentUser.username
                 });
+
+                currentRoom = roomId;
+                document.getElementById('current-room').textContent = '#' + roomName;
+                document.getElementById('chat-title').textContent = '#' + roomName;
+                updateDebugInfo();
             }
         }
 
-        function showChatContainer() {
-            const welcomeScreen = document.getElementById('welcome-screen');
-            const chatContainer = document.getElementById('chat-container');
-            const usersPanel = document.getElementById('users-panel');
+        socket.on('room_joined', function (data) {
+            console.log('Room joined:', data);
+            currentRoom = data.room_id;
+            document.getElementById('current-room').textContent = '#' + data.room_name;
+            document.getElementById('chat-title').textContent = '#' + data.room_name;
+            updateDebugInfo();
+            showChatContainer();
+            renderMessages(data.messages || []);
 
-            welcomeScreen.style.display = 'none';
-            chatContainer.style.display = 'flex';
-            chatContainer.style.flexDirection = 'column';
-            chatContainer.style.height = '100%';
-            usersPanel.style.display = 'block';
+            if (data.is_locked === 2) { // Welcome room
+                updateInputState(false);
+            } else if (data.is_locked === 3) { // Rules room
+                updateInputState(currentServer && currentServer.owner_id === currentUser.user_id);
+            } else {
+                updateInputState(data.is_locked !== 1 || (currentServer && currentServer.owner_id === currentUser.user_id));
+            }
+        });
+
+        function renderServerData(server, rooms) {
+            console.log('Rendering server data:', server, rooms);
+            const createRoomBtn = document.getElementById('create-room-btn');
+            createRoomBtn.style.display = server.owner_id === currentUser.user_id ? 'block' : 'none';
+
+            const activeServerEl = document.getElementById(`server-item-${server.id}`);
+            if (!activeServerEl) return;
+
+            const existingRooms = activeServerEl.querySelector('.rooms-container');
+            if (existingRooms) existingRooms.remove();
+
+            const roomsContainer = document.createElement('div');
+            roomsContainer.className = 'rooms-container';
+            roomsContainer.innerHTML = '<div style="padding: 5px 10px; font-weight: bold; font-size: 12px; color: #000000; border-top: 7px solid #666; margin-top: 10px;">Rooms:</div>';
+
+            rooms.forEach(room => {
+                const roomEl = document.createElement('div');
+                roomEl.className = 'room-item';
+                roomEl.id = `room-item-${room.id}`;
+
+                let roomActions = '';
+                if (server.owner_id === currentUser.user_id && !room.is_special) {
+                    roomActions = `<div class="room-actions">
+                <button class="action-btn delete" onclick="event.stopPropagation(); confirmDeleteRoom(${room.id}, '${room.name}')">DEL</button>
+            </div>`;
+                }
+
+                let roomNameDisplay = room.name;
+                if (room.is_special) {
+                    roomNameDisplay = ` ${room.name}`;
+                }
+
+                roomEl.innerHTML = `#${roomNameDisplay}${roomActions}`;
+                roomEl.onclick = () => {
+                    document.querySelectorAll('.room-item').forEach(el => el.classList.remove('active'));
+                    roomEl.classList.add('active');
+                    joinRoom(room.id, room.name);
+                };
+                roomsContainer.appendChild(roomEl);
+            });
+
+            activeServerEl.appendChild(roomsContainer);
+        }
+
+        function joinRoom(roomId, roomName) {
+            console.log('Joining room:', roomId, roomName);
+
+            if (socket && socket.connected) {
+                socket.emit('join_room', {
+                    room_id: roomId,
+                    user_id: currentUser.user_id,
+                    username: currentUser.username
+                });
+
+                currentRoom = roomId;
+                document.getElementById('current-room').textContent = '#' + roomName;
+                document.getElementById('chat-title').textContent = '#' + roomName;
+                updateDebugInfo();
+
+                if (roomName.toLowerCase() === 'welcome') {
+                    updateInputState(false);
+                } else if (roomName.toLowerCase() === 'rules') {
+
+                    updateInputState(currentServer && currentServer.owner_id === currentUser.user_id);
+                } else {
+                    socket.emit('get_room_lock_status', {
+                        room_id: roomId,
+                        server_id: currentServer.id
+                    });
+                }
+            }
+        }
+
+        function updateInputState(enabled, message = "Type message... (/help for commands)") {
+            const messageInput = document.getElementById('message-input');
+            const sendBtn = document.querySelector('.send-btn');
+            const uploadBtn = document.querySelector('.upload-btn');
+
+            if (enabled) {
+                messageInput.disabled = false;
+                messageInput.placeholder = message;
+                sendBtn.disabled = false;
+                uploadBtn.disabled = false;
+                sendBtn.style.opacity = '1';
+                uploadBtn.style.opacity = '1';
+            } else {
+                messageInput.disabled = true;
+                messageInput.placeholder = message;
+                sendBtn.disabled = true;
+                uploadBtn.disabled = true;
+                sendBtn.style.opacity = '0.5';
+                uploadBtn.style.opacity = '0.5';
+            }
+        }
+
+
+        socket.on('server_data', function (data) {
+            console.log('Received server data:', data);
+            if (data.success) {
+                currentServer = data.server;
+                isOwner = currentServer.owner_id === currentUser.user_id;
+                renderServerData(data.server, data.rooms);
+                updateDebugInfo();
+
+                const serverActions = document.getElementById('server-actions');
+                if (isOwner) {
+                    serverActions.innerHTML = `
+                <button class="header-btn" onclick="lockCurrentChannel()">Lock Channel</button>
+                <button class="header-btn" onclick="confirmDeleteServer(${currentServer.id}, '${currentServer.name}')">Delete Server</button>
+            `;
+                } else {
+                    serverActions.innerHTML = '';
+                }
+            } else {
+                showNotification('Failed to load server: ' + data.error, 'error');
+            }
+        });
+
+        socket.on('room_joined', function (data) {
+            console.log('Room joined:', data);
+            renderMessages(data.messages || []);
+
+            let isOwner = currentServer && currentServer.owner_id === currentUser.user_id;
+
+            switch (data.is_locked) {
+                case 4: 
+                    updateInputState(false, "This channel is read-only");
+                    break;
+                case 3: 
+                    updateInputState(isOwner, isOwner ? "Only you can type here" : "This channel is read-only");
+                    break;
+                case 1:
+                    updateInputState(isOwner, isOwner ? "Channel is locked, but you can type" : "This channel is locked");
+                    break;
+                case 0: 
+                default:
+                    updateInputState(true);
+                    break;
+            }
+        });
+
+        function showChatContainer() {
+            document.getElementById('welcome-screen').style.display = 'none';
+            document.getElementById('chat-container').style.display = 'flex';
+            document.getElementById('users-panel').style.display = 'block';
         }
 
         function showWelcomeScreen() {
-            const welcomeScreen = document.getElementById('welcome-screen');
-            const chatContainer = document.getElementById('chat-container');
-            const usersPanel = document.getElementById('users-panel');
-
-            welcomeScreen.style.display = 'flex';
-            chatContainer.style.display = 'none';
-            usersPanel.style.display = 'none';
+            document.getElementById('welcome-screen').style.display = 'flex';
+            document.getElementById('chat-container').style.display = 'none';
+            document.getElementById('users-panel').style.display = 'none';
             document.getElementById('create-room-btn').style.display = 'none';
+            document.querySelectorAll('.server-item').forEach(el => el.classList.remove('active'));
         }
 
         async function renderMessages(messages) {
             console.log('Rendering messages:', messages.length);
             const messagesContainer = document.getElementById('chat-messages');
             messagesContainer.innerHTML = '';
-            roomUsers.clear();
-
             for (const msg of messages) {
-                await addMessage(msg);
+                await addMessage(msg, false);
             }
-
             scrollToBottom();
         }
 
-        async function addMessage(data) {
+        async function addMessage(data, scroll = true) {
             const messagesContainer = document.getElementById('chat-messages');
             const messageEl = document.createElement('div');
             messageEl.className = `message ${data.type}`;
 
-            if (data.username && data.type !== 'system') {
-                roomUsers.add(data.username);
-            }
-
             let content = '';
             if (data.type === 'system') {
-                // Check for file upload system messages and add download links
-                let systemMessage = data.message;
-                const fileUploadMatch = systemMessage.match(/uploaded (image|video|audio|text|file): (.+)/);
-                if (fileUploadMatch && data.file_id) {
-                    const fileType = fileUploadMatch[1];
-                    const filename = fileUploadMatch[2];
-                    systemMessage = `uploaded ${fileType}: <a href="/files/${data.file_id}" class="file-download" target="_blank">${filename}</a>`;
-                }
-                content = `<span class="timestamp">[${data.timestamp}]</span> <em>*** ${systemMessage}</em>`;
+                content = `<span class="timestamp">[${data.timestamp}]</span> <em>*** ${escapeHtml(data.message)}</em>`;
             } else if (data.type === 'private') {
                 const processedMessage = await processMessage(data.message);
                 content = `<span class="timestamp">[${data.timestamp}]</span> <span style="color: #ff6b9d;">[PRIVATE]</span> <span class="username">&lt;${data.username}&gt;</span> ${processedMessage}`;
-            } else if (data.type === 'file_embed') {
+            } else if (data.type === 'file_embed' && data.file_data) {
                 const embedContent = await createFileEmbed(data.file_data);
                 content = `<span class="timestamp">[${data.timestamp}]</span> <span class="username">&lt;${data.username}&gt;</span> ${embedContent}`;
-            } else if (data.type === 'file') {
-                content = `<span class="timestamp">[${data.timestamp}]</span> <span class="username">&lt;${data.username}&gt;</span> <a href="${data.download_url}" class="file-download" target="_blank">📎 ${data.filename}</a>`;
+            } else if (data.type === 'file' && data.download_url) {
+                content = `<span class="timestamp">[${data.timestamp}]</span> <span class="username">&lt;${data.username}&gt;</span> <a href="${data.download_url}" class="file-download" target="_blank" download>${data.filename}</a>`;
             } else {
                 const processedMessage = await processMessage(data.message);
                 content = `<span class="timestamp">[${data.timestamp}]</span> <span class="username">&lt;${data.username}&gt;</span> ${processedMessage}`;
@@ -1492,23 +1690,16 @@
 
             messageEl.innerHTML = content;
             messagesContainer.appendChild(messageEl);
-            scrollToBottom();
+            if (scroll) scrollToBottom();
         }
 
         async function processMessage(message) {
-            // Process HTML tags first
             let processedMsg = processHtmlTags(message);
 
-            // Auto-embed images and GIFs
             if (message.startsWith('/gif ') || message.startsWith('/img ')) {
-                const url = message.substring(5).trim();
-                if (isValidImageUrl(url)) {
-                    return `<div class="embedded-content"><img src="${url}" alt="Image" onerror="this.style.display='none'" loading="lazy"></div>`;
-                }
-                return processedMsg;
+                const url = message.substring(message.indexOf(' ')).trim();
+                if (isValidImageUrl(url)) return `<div class="embedded-content"><img src="${url}" alt="Image" onerror="this.style.display='none'" loading="lazy"></div>`;
             }
-
-            // Auto-embed videos
             if (message.startsWith('/video ')) {
                 const url = message.substring(7).trim();
                 if (isYouTubeUrl(url)) {
@@ -1517,144 +1708,49 @@
                 } else if (isValidVideoUrl(url)) {
                     return `<div class="embedded-content"><video controls><source src="${url}"></video></div>`;
                 }
-                return processedMsg;
             }
 
-            // Check for direct image/video URLs
             const urlMatch = message.match(/https?:\/\/[^\s]+/g);
             if (urlMatch) {
-                urlMatch.forEach(url => {
+                for (const url of urlMatch) {
+                    let embed = '';
                     if (isValidImageUrl(url)) {
-                        processedMsg = processedMsg.replace(url,
-                            `${url}<div class="embedded-content"><img src="${url}" alt="Image" onerror="this.style.display='none'" loading="lazy"></div>`
-                        );
+                        embed = `<div class="embedded-content"><img src="${url}" alt="Image" onerror="this.style.display='none'" loading="lazy"></div>`;
                     } else if (isYouTubeUrl(url)) {
                         const videoId = extractYouTubeId(url);
-                        processedMsg = processedMsg.replace(url,
-                            `${url}<div class="embedded-content"><iframe src="https://www.youtube.com/embed/${videoId}" allowfullscreen></iframe></div>`
-                        );
+                        embed = `<div class="embedded-content"><iframe src="https://www.youtube.com/embed/${videoId}" allowfullscreen></iframe></div>`;
                     } else if (isValidVideoUrl(url)) {
-                        processedMsg = processedMsg.replace(url,
-                            `${url}<div class="embedded-content"><video controls><source src="${url}"></video></div>`
-                        );
+                        embed = `<div class="embedded-content"><video controls><source src="${url}"></video></div>`;
                     }
-                });
+                    if (embed) processedMsg = processedMsg.replace(url, `${url}${embed}`);
+                }
             }
-
             return processedMsg;
         }
 
         function processHtmlTags(message) {
-            // Process HTML tags while escaping dangerous content
-            let processedMsg = message;
+            const tempDiv = document.createElement('div');
+            tempDiv.textContent = message;
+            let processedMsg = tempDiv.innerHTML;
 
-            // Handle <size> tag with validation
-            processedMsg = processedMsg.replace(/<size=(\d+)>(.*?)<\/size>/gi, function (match, size, content) {
+            processedMsg = processedMsg.replace(/&lt;size=(\d+)&gt;(.*?)&lt;\/size&gt;/gi, (_, size, content) => {
                 const fontSize = Math.max(6, Math.min(48, parseInt(size) || 16));
                 return `<span style="font-size: ${fontSize}px;">${content}</span>`;
             });
-
-            // Handle other formatting tags
-            processedMsg = processedMsg.replace(/<b>(.*?)<\/b>/gi, '<b>$1</b>');
-            processedMsg = processedMsg.replace(/<bold>(.*?)<\/bold>/gi, '<bold>$1</bold>');
-            processedMsg = processedMsg.replace(/<big>(.*?)<\/big>/gi, '<big>$1</big>');
-            processedMsg = processedMsg.replace(/<center>(.*?)<\/center>/gi, '<center>$1</center>');
-            processedMsg = processedMsg.replace(/<small>(.*?)<\/small>/gi, '<small>$1</small>');
-            processedMsg = processedMsg.replace(/<blink>(.*?)<\/blink>/gi, '<blink>$1</blink>');
-            processedMsg = processedMsg.replace(/<marquee>(.*?)<\/marquee>/gi, '<marquee>$1</marquee>');
-
-            // Escape other potentially dangerous HTML
-            const tempDiv = document.createElement('div');
-            const allowedTags = ['b', 'bold', 'big', 'center', 'small', 'blink', 'marquee', 'span'];
-
-            // Create a safe version by only allowing specific tags
-            let safeMsg = '';
-            let inTag = false;
-            let currentTag = '';
-
-            for (let i = 0; i < processedMsg.length; i++) {
-                const char = processedMsg[i];
-
-                if (char === '<') {
-                    inTag = true;
-                    currentTag = '';
-                    safeMsg += char;
-                } else if (char === '>') {
-                    inTag = false;
-                    safeMsg += char;
-                } else if (inTag) {
-                    currentTag += char;
-                    safeMsg += char;
-                } else {
-                    // Escape dangerous characters outside of allowed tags
-                    if (char === '&') {
-                        safeMsg += '&amp;';
-                    } else if (char === '"') {
-                        safeMsg += '&quot;';
-                    } else if (char === "'") {
-                        safeMsg += '&#x27;';
-                    } else {
-                        safeMsg += char;
-                    }
-                }
-            }
-
-            return safeMsg;
-        }
-        function parseUrlSafe(raw) {
-            try { return new URL(raw); } catch { return null; }
-        }
-
-        function hasExt(pathname, exts) {
-            const p = (pathname || '').toLowerCase();
-            return exts.some(ext => p.endsWith('.' + ext));
-        }
-
-        function isDiscordHost(host) {
-            // Common Discord media/attachment hosts
-            const h = (host || '').toLowerCase();
-            return h.endsWith('discordapp.com') ||
-                h.endsWith('discord.com') ||
-                h.endsWith('media.discordapp.net') ||
-                h === 'cdn.discordapp.com';
-        }
-        function isValidImageUrl(url) {
-            const u = parseUrlSafe(url);
-            if (!u || (u.protocol !== 'http:' && u.protocol !== 'https:')) return false;
-
-            // Accept standard image extensions based on pathname (ignores ?query)
-            const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
-            if (hasExt(u.pathname, imageExts)) return true;
-
-            // Discord special-case: `format=webp` or similar in query, or known image CDN
-            if (isDiscordHost(u.host)) {
-                const fmt = (u.searchParams.get('format') || '').toLowerCase();
-                if (fmt && imageExts.includes(fmt)) return true;
-                // Many Discord image links include proper extensions already, handled above.
-                return true; // Be lenient for Discord CDN images
-            }
-
-            return false;
+            const tags = ['b', 'bold', 'big', 'center', 'small', 'blink', 'marquee'];
+            tags.forEach(tag => {
+                const open = new RegExp(`&lt;${tag}&gt;`, 'gi');
+                const close = new RegExp(`&lt;/${tag}&gt;`, 'gi');
+                processedMsg = processedMsg.replace(open, `<${tag}>`).replace(close, `</${tag}>`);
+            });
+            return processedMsg;
         }
 
 
-        function isValidVideoUrl(url) {
-            const u = parseUrlSafe(url);
-            if (!u || (u.protocol !== 'http:' && u.protocol !== 'https:')) return false;
 
-            const videoExts = ['mp4', 'webm', 'ogg', 'avi', 'mov', 'm4v'];
-            if (hasExt(u.pathname, videoExts)) return true;
-
-            // Discord attachments often have extension before query; also allow trusted hosts
-            if (isDiscordHost(u.host)) return true;
-
-            return false;
-        }
-
-        function isYouTubeUrl(url) {
-            return /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/.test(url);
-        }
-
+        function isValidImageUrl(url) { return /\.(jpeg|jpg|gif|png|webp|bmp|svg)$/i.test(url); }
+        function isValidVideoUrl(url) { return /\.(mp4|webm|ogg|avi|mov)$/i.test(url); }
+        function isYouTubeUrl(url) { return /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)/.test(url); }
         function extractYouTubeId(url) {
             const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
             return match ? match[1] : '';
@@ -1665,385 +1761,178 @@
             const usersList = document.getElementById('users-list');
             usersList.innerHTML = '';
 
-            // Remove duplicates and sort
-            const uniqueUsers = [...new Set(users)].sort();
+            const uniqueUsers = [...new Set(users)].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
 
             uniqueUsers.forEach(user => {
                 const userEl = document.createElement('div');
                 userEl.className = 'user-item';
+                userEl.textContent = user;
 
                 if (isOwner && user !== currentUser.username) {
-                    userEl.innerHTML = `
-                <span>${user}</span>
-                <button class="kick-btn" onclick="kickUser('${user}')">KICK</button>
-            `;
-                } else {
-                    userEl.textContent = user;
+                    const kickBtn = document.createElement('button');
+                    kickBtn.className = 'kick-btn';
+                    kickBtn.textContent = 'KICK';
+                    kickBtn.onclick = () => kickUser(user);
+                    userEl.appendChild(kickBtn);
                 }
-
                 usersList.appendChild(userEl);
             });
         }
 
         function sendMessage() {
             const input = document.getElementById('message-input');
-            const message = input.value.trim();
-
+            let message = input.value.trim();
             if (!message || !currentRoom) return;
 
             console.log('Sending message:', message);
 
-            // Handle commands
-            if (message === '/help') {
-                showHelpMessage();
-                input.value = '';
-                autoResizeTextarea(input);
-                return;
-            }
-
-            if (message.startsWith('/nick ')) {
-                const newNick = message.substring(6).trim();
-                if (newNick) {
-                    changeNicknameDirect(newNick);
-                } else {
-                    showNotification('Usage: /nick <new_nickname>', 'error');
+            if (message.startsWith('/')) {
+                if (handleCommand(message)) {
+                    input.value = '';
+                    autoResizeTextarea(input);
+                    return;
                 }
-                input.value = '';
-                autoResizeTextarea(input);
-                return;
             }
 
-            if (message === '/logs') {
-                loadRoomLogs();
-                input.value = '';
-                autoResizeTextarea(input);
-                return;
-            }
-
-            if (message === '/clear') {
-                document.getElementById('chat-messages').innerHTML = '';
-                roomUsers.clear();
-                input.value = '';
-                autoResizeTextarea(input);
-                return;
-            }
-
-            // Send regular message
             if (socket && socket.connected) {
-                socket.emit('send_message', {
-                    message: message,
-                    user_id: currentUser.user_id,
-                    username: currentUser.username,
-                    room_id: currentRoom
-                });
+                socket.emit('send_message', { message: message, user_id: currentUser.user_id, room_id: currentRoom, server_id: currentServer.id });
             } else {
                 showNotification('Not connected to server', 'error');
             }
-
             input.value = '';
             autoResizeTextarea(input);
+        }
+
+        function handleCommand(message) {
+            const parts = message.split(' ');
+            const command = parts[0].toLowerCase();
+            const args = parts.slice(1).join(' ');
+
+            switch (command) {
+                case '/help':
+                    showHelpMessage();
+                    return true;
+                case '/nick':
+                    if (args) changeNicknameDirect(args);
+                    else showNotification('Usage: /nick <new_nickname>', 'error');
+                    return true;
+                case '/logs':
+                    loadRoomLogs();
+                    return true;
+                case '/clear':
+                    document.getElementById('chat-messages').innerHTML = '';
+                    return true;
+                default:
+                    return false;
+                case '/lock':
+                    if (currentServer && currentServer.owner_id === currentUser.user_id) {
+                        lockChannel(true);
+                    } else {
+                        showNotification('Only server owners can lock channels', 'error');
+                    }
+                    return true;
+                case '/unlock':
+                    if (currentServer && currentServer.owner_id === currentUser.user_id) {
+                        lockChannel(false);
+                    } else {
+                        showNotification('Only server owners can unlock channels', 'error');
+                    }
+                    return true;
+                    function lockChannel(lock) {
+                        if (!currentRoom) {
+                            showNotification('No room selected', 'error');
+                            return;
+                        }
+
+                        socket.emit('lock_channel', {
+                            room_id: currentRoom,
+                            server_id: currentServer.id,
+                            user_id: currentUser.user_id,
+                            lock: lock
+                        });
+                    }
+            }
         }
 
         function showHelpMessage() {
             const helpText = `*** TERMINET IRC COMMANDS ***
 /help - Show this help message
 /nick <nickname> - Change your nickname
-/gif <url> - Embed image/GIF
-/img <url> - Embed image
-/video <url> - Embed video (supports YouTube)
-/logs - Load room chat logs
-/clear - Clear chat messages
+/gif <url> | /img <url> - Embed image/GIF
+/video <url> - Embed video (YouTube supported)
+/logs - Load recent room messages
+/clear - Clear chat screen
 
-*** FORMATTING TAGS ***
-<b>text</b> or <bold>text</bold> - Bold text
-<big>text</big> - Larger text
-<small>text</small> - Smaller text
-<center>text</center> - Centered text
-<blink>text</blink> - Blinking text
-<marquee>text</marquee> - Scrolling text
-<size=12>text</size> - Custom font size (6-48px)
+*** FORMATTING TAGS (use < >) ***
+b, bold, big, small, center, blink, marquee, size=12`;
 
-*** MEDIA EMBEDDING ***
-- Supported image formats: JPG, JPEG, PNG, GIF, WEBP, BMP, SVG
-- Supported video formats: MP4, WEBM, OGG, AVI, MOV
-- YouTube videos are automatically embedded
-- All URLs must start with http:// or https://
-- Media will auto-resize to fit chat area
-
-*** SERVER MANAGEMENT ***
-- Owners can create/delete rooms and kick users
-- Members can leave servers (except owned servers)
-- All messages are logged per-user basis
-- Max 512 messages per room log file`;
-
-            const helpMsg = {
+            addMessage({
                 type: 'system',
-                // Escape so tags display literally in chat
-                message: escapeHtml(helpText),
+                message: helpText,
                 timestamp: new Date().toLocaleTimeString().substring(0, 8)
-            };
-            addMessage(helpMsg);
+            });
         }
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
-            return div.innerHTML;
+            return div.innerHTML.replace(/\n/g, '<br>');
         }
         function scrollToBottom() {
             const container = document.getElementById('chat-messages');
             container.scrollTop = container.scrollHeight;
         }
 
-        // Modal functions
-        function showModal(modalId) {
-            document.getElementById(modalId).style.display = 'block';
-        }
-
+        function showModal(modalId) { document.getElementById(modalId).style.display = 'block'; }
         function closeModal(modalId) {
-            document.getElementById(modalId).style.display = 'none';
-            document.getElementById(modalId).querySelectorAll('input').forEach(input => {
-                input.value = '';
-            });
+            const modal = document.getElementById(modalId);
+            modal.style.display = 'none';
+            modal.querySelectorAll('input').forEach(input => input.value = '');
         }
-
-        function showCreateServerModal() {
-            showModal('create-server-modal');
-            setTimeout(() => document.getElementById('server-name').focus(), 100);
-        }
-
-        function showJoinServerModal() {
-            showModal('join-server-modal');
-            setTimeout(() => document.getElementById('join-server-code').focus(), 100);
-        }
-
+        function showCreateServerModal() { showModal('create-server-modal'); document.getElementById('server-name').focus(); }
+        function showJoinServerModal() { showModal('join-server-modal'); document.getElementById('join-server-code').focus(); }
         function showCreateRoomModal() {
-            if (!currentServer) {
-                showNotification('Please select a server first', 'error');
-                return;
-            }
-            showModal('create-room-modal');
-            setTimeout(() => document.getElementById('room-name').focus(), 100);
+            if (!currentServer) return showNotification('Please select a server first', 'error');
+            showModal('create-room-modal'); document.getElementById('room-name').focus();
         }
-
         function showNickModal() {
-            document.getElementById('new-nickname').value = currentUser.username;
+            const input = document.getElementById('new-nickname');
+            input.value = currentUser.username;
             showModal('nick-modal');
-            setTimeout(() => {
-                const input = document.getElementById('new-nickname');
-                input.focus();
-                input.select();
-            }, 100);
+            input.focus(); input.select();
         }
 
         function createServer() {
             const name = document.getElementById('server-name').value.trim();
             const description = document.getElementById('server-description').value.trim();
-
-            if (!name) {
-                showNotification('Server name is required', 'error');
-                return;
-            }
-
-            console.log('Creating server:', name);
-            if (socket && socket.connected) {
-                socket.emit('create_server', {
-                    name: name,
-                    description: description,
-                    owner_id: currentUser.user_id
-                });
-            } else {
-                showNotification('Not connected to server', 'error');
-            }
+            if (!name) return showNotification('Server name is required', 'error');
+            socket.emit('create_server', { name, description, owner_id: currentUser.user_id });
         }
 
         function joinServer() {
             const code = document.getElementById('join-server-code').value.trim().toUpperCase();
-
-            if (!code) {
-                showNotification('Server code is required', 'error');
-                return;
-            }
-
-            console.log('Joining server:', code);
-            if (socket && socket.connected) {
-                socket.emit('join_server', {
-                    server_code: code,
-                    user_id: currentUser.user_id
-                });
-            } else {
-                showNotification('Not connected to server', 'error');
-            }
+            if (!code) return showNotification('Server code is required', 'error');
+            socket.emit('join_server', { server_code: code, user_id: currentUser.user_id, username: currentUser.username });
         }
 
         function createRoom() {
             const roomName = document.getElementById('room-name').value.trim();
-
-            if (!roomName) {
-                showNotification('Room name is required', 'error');
-                return;
-            }
-
-            if (!currentServer) {
-                showNotification('No server selected', 'error');
-                return;
-            }
-
-            console.log('Creating room:', roomName);
-            if (socket && socket.connected) {
-                socket.emit('create_room', {
-                    room_name: roomName,
-                    server_id: currentServer.id,
-                    user_id: currentUser.user_id
-                });
-            } else {
-                showNotification('Not connected to server', 'error');
-            }
+            if (!roomName) return showNotification('Room name is required', 'error');
+            if (!currentServer) return showNotification('No server selected', 'error');
+            socket.emit('create_room', { room_name: roomName, server_id: currentServer.id, user_id: currentUser.user_id });
         }
 
         function changeNickname() {
             const newNick = document.getElementById('new-nickname').value.trim();
-            if (!newNick) {
-                showNotification('Nickname cannot be empty', 'error');
-                return;
-            }
+            if (!newNick) return showNotification('Nickname cannot be empty', 'error');
             changeNicknameDirect(newNick);
         }
 
         function changeNicknameDirect(newNickname) {
-            if (newNickname === currentUser.username) {
-                showNotification('That is already your nickname', 'error');
-                return;
-            }
-
-            if (newNickname.length > 20) {
-                showNotification('Nickname must be 20 characters or less', 'error');
-                return;
-            }
-
-            console.log('Changing nickname to:', newNickname);
-
+            if (newNickname === currentUser.username) return;
+            if (newNickname.length > 20) return showNotification('Nickname must be 20 characters or less', 'error');
             if (socket && socket.connected && currentRoom) {
-                socket.emit('change_nickname', {
-                    user_id: currentUser.user_id,
-                    new_nick: newNickname,
-                    room_id: currentRoom
-                });
-            } else {
-                showNotification('Not connected to server or no room selected', 'error');
+                socket.emit('change_nickname', { user_id: currentUser.user_id, new_nick: newNickname, room_id: currentRoom });
             }
-        }
-
-        // Add these new socket event handlers in the initialization section:
-
-        socket.on('nickname_changed', function (data) {
-            console.log('Nickname changed successfully:', data);
-            if (data.success) {
-                const oldNick = currentUser.username;
-                currentUser.username = data.new_nick;
-                document.getElementById('current-username').textContent = data.new_nick;
-                sessionStorage.setItem('terminet_user', JSON.stringify(currentUser));
-                showNotification('Nickname changed successfully!', 'success');
-                closeModal('nick-modal');
-            }
-        });
-
-        socket.on('nickname_error', function (data) {
-            console.error('Nickname change error:', data);
-            showNotification('Nickname change failed: ' + data.error, 'error');
-        });
-
-        // Also update the users_list handler to properly update the roomUsers set:
-
-        socket.on('users_list', function (data) {
-            console.log('Users list:', data);
-            roomUsers = new Set(data.users || []);
-            renderUsersList(Array.from(roomUsers));
-        });
-
-        function confirmDeleteServer(serverId, serverName) {
-            showConfirmModal(
-                'Delete Server',
-                `Are you sure you want to delete the server "${serverName}"? This action cannot be undone.`,
-                () => deleteServer(serverId)
-            );
-        }
-
-        function confirmLeaveServer(serverId, serverName) {
-            showConfirmModal(
-                'Leave Server',
-                `Are you sure you want to leave the server "${serverName}"?`,
-                () => leaveServer(serverId)
-            );
-        }
-
-        function confirmDeleteRoom(roomId, roomName) {
-            showConfirmModal(
-                'Delete Room',
-                `Are you sure you want to delete the room "#${roomName}"?`,
-                () => deleteRoom(roomId)
-            );
-        }
-
-        function deleteServer(serverId) {
-            console.log('Deleting server:', serverId);
-            if (socket && socket.connected) {
-                socket.emit('delete_server', {
-                    server_id: serverId,
-                    user_id: currentUser.user_id
-                });
-            }
-            closeModal('confirm-modal');
-        }
-
-        function leaveServer(serverId) {
-            console.log('Leaving server:', serverId);
-            if (socket && socket.connected) {
-                socket.emit('leave_server', {
-                    server_id: serverId,
-                    user_id: currentUser.user_id
-                });
-            }
-            closeModal('confirm-modal');
-        }
-
-        function deleteRoom(roomId) {
-            console.log('Deleting room:', roomId);
-            if (socket && socket.connected) {
-                socket.emit('delete_room', {
-                    room_id: roomId,
-                    user_id: currentUser.user_id
-                });
-            }
-            closeModal('confirm-modal');
-        }
-
-        function kickUser(username) {
-            if (!currentRoom || !isOwner) {
-                showNotification('Only server owners can kick users', 'error');
-                return;
-            }
-
-            if (username === currentUser.username) {
-                showNotification('You cannot kick yourself', 'error');
-                return;
-            }
-
-            console.log('Kicking user:', username);
-
-            if (!confirm(`Are you sure you want to kick ${username} from this server?\n\nThis will completely remove them from the server.`)) {
-                return;
-            }
-
-            if (socket && socket.connected) {
-                socket.emit('kick_user', {
-                    server_id: currentServer.id,
-                    username: username,
-                    kicked_by: currentUser.user_id
-                });
-            }
-
-            roomUsers.delete(username);
-            renderUsersList(Array.from(roomUsers));
         }
 
         function showConfirmModal(title, message, onConfirm) {
@@ -2053,17 +1942,36 @@
             showModal('confirm-modal');
         }
 
+        function confirmDeleteServer(serverId, serverName) { showConfirmModal('Delete Server', `Delete "${serverName}"? This is permanent.`, () => deleteServer(serverId)); }
+        function confirmLeaveServer(serverId, serverName) { showConfirmModal('Leave Server', `Leave "${serverName}"?`, () => leaveServer(serverId)); }
+        function confirmDeleteRoom(roomId, roomName) { showConfirmModal('Delete Room', `Delete "#${roomName}"?`, () => deleteRoom(roomId)); }
+
+        function deleteServer(serverId) { socket.emit('delete_server', { server_id: serverId, user_id: currentUser.user_id }); closeModal('confirm-modal'); }
+        function leaveServer(serverId) {
+            socket.emit('leave_server', { server_id: serverId, user_id: currentUser.user_id, username: currentUser.username });
+            closeModal('confirm-modal');
+        }
+        function deleteRoom(roomId) { socket.emit('delete_room', { room_id: roomId, user_id: currentUser.user_id }); closeModal('confirm-modal'); }
+
+        function kickUser(username) {
+            if (!isOwner) return showNotification('Only server owners can kick users', 'error');
+            if (username === currentUser.username) return showNotification('You cannot kick yourself', 'error');
+            showConfirmModal('Kick User', `Kick ${username} from this server? They will be permanently removed.`, () => {
+                socket.emit('kick_user', { server_id: currentServer.id, username: username, kicked_by: currentUser.user_id });
+                closeModal('confirm-modal');
+            });
+        }
+
         function showNotification(message, type = 'success') {
-            console.log('Notification:', message, type);
-            const existing = document.querySelectorAll('.notification');
-            existing.forEach(n => n.remove());
+            const existing = document.querySelector('.notification');
+            if (existing) existing.remove();
 
             const notification = document.createElement('div');
             notification.className = `notification ${type}`;
             notification.textContent = message;
             document.body.appendChild(notification);
 
-            setTimeout(() => notification.classList.add('show'), 100);
+            setTimeout(() => notification.classList.add('show'), 10);
             setTimeout(() => {
                 notification.classList.remove('show');
                 setTimeout(() => notification.remove(), 300);
@@ -2071,134 +1979,25 @@
         }
 
         function logout() {
-            console.log('Logging out...');
             sessionStorage.removeItem('terminet_user');
-            if (socket) {
-                socket.disconnect();
-            }
+            if (socket) socket.disconnect();
             window.location.href = '/';
         }
 
-        // Handle connection errors and cleanup
-        window.addEventListener('beforeunload', function () {
-            if (socket) {
-                socket.disconnect();
-            }
-        });
+        window.addEventListener('beforeunload', () => { if (socket) socket.disconnect(); });
+        window.addEventListener('click', (event) => { if (event.target.classList.contains('modal')) event.target.style.display = 'none'; });
+        setInterval(() => { if (socket && !socket.connected) { initializeSocket(); } }, 10000);
 
-        // Click outside modal to close
-        window.addEventListener('click', function (event) {
-            if (event.target.classList.contains('modal')) {
-                event.target.style.display = 'none';
-            }
-        });
-
-        // Auto-reconnect function
-        function attemptReconnect() {
-            if (!socket || !socket.connected) {
-                console.log('Attempting to reconnect...');
-                initializeSocket();
-            }
-        }
-
-        // Check connection every 10 seconds
-        setInterval(() => {
-            if (socket && !socket.connected && reconnectAttempts < maxReconnectAttempts) {
-                attemptReconnect();
-            }
-            updateDebugInfo();
-        }, 10000);
-
-        // File upload functions
         function triggerFileUpload() {
-            if (!currentRoom || !currentServer) {
-                showNotification('Please select a room first', 'error');
-                return;
-            }
+            if (!currentRoom) return showNotification('Please join a room to upload files', 'error');
             document.getElementById('file-input').click();
         }
 
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
-
-            // Check file size (50MB limit)
-            const maxSize = 50 * 1024 * 1024;
-            if (file.size > maxSize) {
-                showNotification('File too large. Maximum size is 50MB', 'error');
-                return;
-            }
-
+            if (file.size > (50 * 1024 * 1024)) return showNotification('File too large (Max 50MB)', 'error');
             uploadFile(file);
-        }
-        async function processMessage(message) {
-            // Handle file embeds
-            if (message.startsWith('FILE_EMBED:')) {
-                try {
-                    const fileData = JSON.parse(message.substring(11));
-                    return await createFileEmbed(fileData);
-                } catch (e) {
-                    return message;
-                }
-            }
-
-            // Handle file downloads
-            if (message.startsWith('FILE_DOWNLOAD:')) {
-                const parts = message.split(':');
-                if (parts.length >= 4) {
-                    const fileId = parts[1];
-                    const filename = parts[2];
-                    const downloadUrl = parts[3];
-                    return `<a href="${downloadUrl}" class="file-download" target="_blank">📎 ${filename}</a>`;
-                }
-            }
-
-            // Process HTML tags first
-            let processedMsg = processHtmlTags(message);
-
-            // Auto-embed images and GIFs
-            if (message.startsWith('/gif ') || message.startsWith('/img ')) {
-                const url = message.substring(5).trim();
-                if (isValidImageUrl(url)) {
-                    return `<div class="embedded-content"><img src="${url}" alt="Image" onerror="this.style.display='none'" loading="lazy"></div>`;
-                }
-                return processedMsg;
-            }
-
-            // Auto-embed videos
-            if (message.startsWith('/video ')) {
-                const url = message.substring(7).trim();
-                if (isYouTubeUrl(url)) {
-                    const videoId = extractYouTubeId(url);
-                    return `<div class="embedded-content"><iframe src="https://www.youtube.com/embed/${videoId}" allowfullscreen></iframe></div>`;
-                } else if (isValidVideoUrl(url)) {
-                    return `<div class="embedded-content"><video controls><source src="${url}"></video></div>`;
-                }
-                return processedMsg;
-            }
-
-            // Check for direct image/video URLs
-            const urlMatch = message.match(/https?:\/\/[^\s]+/g);
-            if (urlMatch) {
-                urlMatch.forEach(url => {
-                    if (isValidImageUrl(url)) {
-                        processedMsg = processedMsg.replace(url,
-                            `${url}<div class="embedded-content"><img src="${url}" alt="Image" onerror="this.style.display='none'" loading="lazy"></div>`
-                        );
-                    } else if (isYouTubeUrl(url)) {
-                        const videoId = extractYouTubeId(url);
-                        processedMsg = processedMsg.replace(url,
-                            `${url}<div class="embedded-content"><iframe src="https://www.youtube.com/embed/${videoId}" allowfullscreen></iframe></div>`
-                        );
-                    } else if (isValidVideoUrl(url)) {
-                        processedMsg = processedMsg.replace(url,
-                            `${url}<div class="embedded-content"><video controls><source src="${downloadUrl}"></video></div>`
-                        );
-                    }
-                });
-            }
-
-            return processedMsg;
         }
 
         async function createFileEmbed(fileData) {
@@ -2206,33 +2005,91 @@
             const filename = fileData.filename;
             const fileType = fileData.file_type;
 
+            function escapeHtml(text) {
+                const map = {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                };
+                return text.replace(/[&<>"']/g, m => map[m]);
+            }
+
             switch (fileType) {
                 case 'image':
-                    return `<div class="embedded-content"><img src="${downloadUrl}" alt="${filename}" loading="lazy"></div>`;
+                    return `<div class="embedded-content">
+                        <img src="${downloadUrl}" alt="${filename}" loading="lazy"
+                             style="max-width:100%; max-height:400px;">
+                    </div>`;
+
                 case 'video':
-                    return `<div class="embedded-content"><video controls><source src="${downloadUrl}"></video></div>`;
+                    return `<div class="embedded-content">
+                        <video controls style="max-width:100%; max-height:400px;">
+                            <source src="${downloadUrl}">
+                        </video>
+                    </div>`;
+
                 case 'audio':
-                    return `<div class="embedded-content"><audio controls><source src="${downloadUrl}"></audio></div>`;
+                    return `<div class="embedded-content">
+                        <audio controls style="width:100%;">
+                            <source src="${downloadUrl}">
+                        </audio>
+                    </div>`;
+
                 case 'text':
-                    // Fetch and display text content with download link
                     try {
                         const response = await fetch(downloadUrl);
+                        if (!response.ok) throw new Error('Failed to load text');
                         const textContent = await response.text();
-                        const truncated = textContent.length > 1000 ? textContent.substring(0, 1000) + '...' : textContent;
-                        return `<div class="text-preview">${escapeHtml(truncated)}</div><a href="${downloadUrl}" class="file-download" target="_blank">Download ${filename}</a>`;
+                        const truncated = textContent.length > 1000
+                            ? textContent.substring(0, 1000) + '...'
+                            : textContent;
+
+                        return `<div class="text-preview">${escapeHtml(truncated)}</div>
+                        <a href="${downloadUrl}" class="file-download" target="_blank">
+                            Download ${escapeHtml(filename)}
+                        </a>`;
                     } catch (e) {
-                        return `<a href="${downloadUrl}" class="file-download" target="_blank">📄 ${filename}</a>`;
+                        return `<a href="${downloadUrl}" class="file-download" target="_blank">
+                            📄 ${escapeHtml(filename)}
+                        </a>`;
                     }
+
                 default:
-                    return `<a href="${downloadUrl}" class="file-download" target="_blank">📎 ${filename}</a>`;
+                    return `<a href="${downloadUrl}" class="file-download" target="_blank">
+                        📎 ${escapeHtml(filename)}
+                    </a>`;
             }
         }
-        function uploadFile(file) {
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function uploadFile() {
+            const fileInput = document.getElementById('file-input');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                showNotification('Please select a file to upload.', 'error');
+                return;
+            }
+            if (!currentRoom || !currentUser || !currentServer) {
+                showNotification('You must be in a room to upload files.', 'error');
+                return;
+            }
+            if (file.size > (50 * 1024 * 1024)) { // 50MB client-side check
+                return showNotification('File is too large (Max 50MB)', 'error');
+            }
+
             const formData = new FormData();
             formData.append('file', file);
             formData.append('user_id', currentUser.user_id);
-            formData.append('server_id', currentServer.id);
             formData.append('room_id', currentRoom);
+            formData.append('server_id', currentServer.id);
 
             const progressModal = document.getElementById('upload-progress');
             const progressFill = document.getElementById('progress-fill');
@@ -2240,53 +2097,59 @@
             const filenameText = document.getElementById('upload-filename');
 
             filenameText.textContent = file.name;
+            progressFill.style.width = '0%';
+            progressText.textContent = '0%';
             progressModal.classList.remove('hidden');
 
             const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/upload', true);
 
-            xhr.upload.addEventListener('progress', function (e) {
+            xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
-                    const percentComplete = (e.loaded / e.total) * 100;
-                    progressFill.style.width = percentComplete + '%';
-                    progressText.textContent = Math.round(percentComplete) + '%';
+                    const percent = (e.loaded / e.total) * 100;
+                    progressFill.style.width = percent + '%';
+                    progressText.textContent = Math.round(percent) + '%';
                 }
-            });
+            };
 
-            xhr.addEventListener('load', function () {
+            xhr.onload = () => {
                 progressModal.classList.add('hidden');
+                fileInput.value = '';
 
                 if (xhr.status === 200) {
-                    const response = JSON.parse(xhr.responseText);
-                    if (response.success) {
-                        // Notify backend about the successful upload
-                        socket.emit('file_uploaded', {
-                            file_id: response.file_id,
-                            user_id: currentUser.user_id,
-                            room_id: currentRoom,
-                            server_id: currentServer.id
-                        });
-                        showNotification('File uploaded successfully!', 'success');
-                    } else {
-                        showNotification('Upload failed: ' + response.error, 'error');
+                    try {
+                        const res = JSON.parse(xhr.responseText);
+                        if (res.success && res.file_id) {
+                            console.log(`HTTP upload success. Emitting 'file_uploaded' for file_id: ${res.file_id}`);
+
+                            socket.emit('file_uploaded', {
+                                file_id: res.file_id,
+                                user_id: currentUser.user_id,
+                                room_id: currentRoom,
+                                server_id: currentServer.id
+                            });
+
+                            showNotification('File uploaded successfully!', 'success');
+                        } else {
+                            showNotification('Upload failed: ' + (res.error || 'Unknown server response'), 'error');
+                        }
+                    } catch (e) {
+                        showNotification('Upload failed: Could not parse server response.', 'error');
+                        console.error("Failed to parse upload response:", xhr.responseText);
                     }
                 } else {
-                    showNotification('Upload failed: Server error', 'error');
+                    showNotification(`Upload failed: Server returned status ${xhr.status}`, 'error');
                 }
+            };
 
-                // Clear file input
-                document.getElementById('file-input').value = '';
-            });
-
-            xhr.addEventListener('error', function () {
+            xhr.onerror = () => {
                 progressModal.classList.add('hidden');
-                showNotification('Upload failed: Network error', 'error');
-                document.getElementById('file-input').value = '';
-            });
+                fileInput.value = '';
+                showNotification('Upload failed due to a network error.', 'error');
+            };
 
-            xhr.open('POST', '/api/upload', true);
             xhr.send(formData);
         }
-
     </script>
 </body>
 
