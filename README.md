@@ -25,7 +25,7 @@ set up:
 - find your public IP
 - or port forwarding 
 - get python 3.9 and then pip install flask flask-socketio werkzeug cryptography
-- change CUSTOM_ENCRYPTION_KEY = "Defualt"  from default to something else key for more security in line 29 (VERY IMPORTANT!)
+- change app.config['SECRET_KEY'] = 'DefualtSecretKeyForTerminetV1.2'  from DefualtSecretKeyForTerminetV1.2 to something else key for more security in line 29 (VERY IMPORTANT!)
 - change CUSTOM_ENCRYPTION_KEY = "Defualt" from default to something else key for more security in line 75 (VERY IMPORTANT!)
 - change SALT = b'defualt' from default to something else salt for more security in line 76 (VERY IMPORTANT!, should be in byte)
 - run the server (python3 terminet_server.py)
