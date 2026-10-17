@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Terminet IRC - Chat</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/ui.css">
+    <link rel="stylesheet" href="/static/chat.css">
+</head>
+
+<body>
+    <div class="upload-progress hidden" id="upload-progress">
+        <h3>Uploading file</h3>
+        <div id="upload-filename"></div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div id="upload-percentage">0%</div>
+    </div>
+
+    <div class="scrim" id="scrim"></div>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="brand">
+            <div class="wordmark" role="img" aria-label="Terminet.IRC"></div>
+            <div class="tagline">if it works, it's a miracle</div>
+        </div>
+        <div class="user-info">
+            <span class="avatar nc0" id="current-avatar"><i>?</i></span>
+            <div class="who">
+                <strong id="current-username">Loading...</strong>
+                <span class="where" id="current-room">No room selected</span>
+            </div>
+        </div>
+
+        <div class="side-head">
+            <span>Servers</span>
+            <span class="side-tools">
+                <button class="key ghost small" id="btn-create-server">Create</button>
+                <button class="key ghost small" id="btn-join-server">Join</button>
+            </span>
+        </div>
+        <div class="servers-section">
+            <div id="servers-list">
+                <div class="empty-note">Loading...</div>
+            </div>
+        </div>
+
+        <div class="side-foot">
+            <button class="key ghost hidden" id="create-room-btn">Create room</button>
+            <div class="foot-row">
+                <button class="key ghost small" id="btn-account">Account</button>
+                <button class="key ghost small" id="btn-logout">Log out</button>
+            </div>
+            <div class="foot-row">
+                <button class="key ghost small" id="btn-sound" aria-pressed="true" title="Beep when a room you are not looking at gets a message">Sound on</button>
+                <button class="key ghost small hidden" id="btn-notify" aria-pressed="false" title="Desktop alerts say which room has news, never what was written">Alerts off</button>
+            </div>
+            <div class="connection-status connecting" id="connection-status">
+                <i class="led"></i><span id="status-text">Connecting...</span>
+            </div>
+        </div>
+    </aside>
+
+    <div class="main-content">
+        <div id="welcome-screen" class="welcome-screen">
+            <div class="welcome-card">
+                <div class="wordmark" role="img" aria-label="Terminet.IRC"></div>
+                <h2>Pick a server, or start one</h2>
+                <p>A server is a set of rooms. Join one with its invite code, or create your own and share the code.</p>
+                <div class="welcome-actions">
+                    <button class="key" id="welcome-create">Create server</button>
+                    <button class="key ghost" id="welcome-join">Join server</button>
+                    <button class="key ghost only-narrow" id="welcome-menu">Your servers</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="chat-container" class="chat-container hidden">
+            <div class="chat-header">
+                <button class="header-btn only-narrow" id="btn-rooms" aria-expanded="false">Rooms</button>
+                <div class="title-box">
+                    <span id="chat-title">#</span>
+                    <span id="chat-topic" class="topic"></span>
+                    <span id="chat-retention" class="rbadge hidden"></span>
+                </div>
+                <button class="header-btn only-narrow" id="btn-people" aria-expanded="false">People</button>
+                <button class="header-btn only-narrow" id="btn-more" aria-expanded="false">More</button>
+                <div class="header-actions" id="header-actions">
+                    <button class="header-btn" id="btn-nick">Change nick</button>
+                    <span id="server-actions"></span>
+                </div>
+            </div>
+            <div class="log-wrap">
+                <div class="chat-messages" id="chat-messages" aria-live="off"></div>
+                <button class="jump-new hidden" id="jump-new">New messages</button>
+            </div>
+            <div class="reply-bar hidden" id="reply-bar">
+                <span id="reply-text"></span>
+                <button class="reply-cancel" id="reply-cancel" title="Cancel reply">&times;</button>
+            </div>
+            <div class="input-container">
+                <button class="key ghost upload-btn" id="btn-upload" title="Attach a file">Attach</button>
+                <textarea id="message-input" class="message-input" placeholder="Message, or /help"
+                    maxlength="1000" rows="1"></textarea>
+                <button class="send-btn" id="btn-send">Send</button>
+                <input type="file" id="file-input" class="file-input" multiple>
+            </div>
+        </div>
+    </div>
+
+    <aside class="users-panel hidden" id="users-panel">
+        <div class="users-header"><span>Online</span><span class="count" id="users-count">0</span></div>
+        <div class="users-list" id="users-list"></div>
+    </aside>
+
+    <div id="create-server-modal" class="modal">
+        <div class="modal-content">
+            <h3>Create server</h3>
+            <div class="modal-body">
+                <input type="text" id="server-name" placeholder="Server name" maxlength="100">
+                <div class="modal-buttons">
+                    <button class="modal-btn cancel" data-close="create-server-modal">Cancel</button>
+                    <button class="modal-btn" id="do-create-server">Create</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="join-server-modal" class="modal">
+        <div class="modal-content">
+            <h3>Join server</h3>
+            <div class="modal-body">
+                <input type="text" id="join-server-code" class="upper" placeholder="Invite code" maxlength="20"
+                    autocomplete="off" spellcheck="false">
+                <div class="modal-buttons">
+                    <button class="modal-btn cancel" data-close="join-server-modal">Cancel</button>
+                    <button class="modal-btn" id="do-join-server">Join</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="create-room-modal" class="modal">
+        <div class="modal-content">
+            <h3>Create room</h3>
+            <div class="modal-body">
+                <input type="text" id="room-name" placeholder="Room name" maxlength="50">
+                <div class="modal-buttons">
+                    <button class="modal-btn cancel" data-close="create-room-modal">Cancel</button>
+                    <button class="modal-btn" id="do-create-room">Create</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="nick-modal" class="modal">
+        <div class="modal-content">
+            <h3>Change nickname</h3>
+            <div class="modal-body">
+                <input type="text" id="new-nickname" placeholder="New nickname" maxlength="20">
+                <p class="modal-note">A number such as [#00001] is added after your name, so two people can share a name.
+                    A new name takes the next free number; a name you leave is never given to anyone else.</p>
+                <div class="modal-buttons">
+                    <button class="modal-btn cancel" data-close="nick-modal">Cancel</button>
+                    <button class="modal-btn" id="do-change-nick">Change</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="account-modal" class="modal">
+        <div class="modal-content">
+            <h3>Account</h3>
+            <div class="modal-body">
+                <p class="field-title">Change password</p>
+                <input type="password" id="acc-old" placeholder="Current password" maxlength="128"
+                    autocomplete="current-password">
+                <input type="password" id="acc-new" placeholder="New password (8+ characters)" maxlength="128"
+                    autocomplete="new-password">
+                <input type="password" id="acc-new2" placeholder="Repeat new password" maxlength="128"
+                    autocomplete="new-password">
+                <div class="modal-buttons">
+                    <button class="modal-btn" id="do-change-pw">Change password</button>
+                </div>
+                <hr class="modal-split">
+                <p class="field-title">Devices</p>
+                <p class="modal-note">Changing the password already signs out every other device. If you think
+                    someone else has your session, sign out here.</p>
+                <div class="modal-buttons">
+                    <button class="modal-btn secondary" id="do-logout-others">Sign out other devices</button>
+                    <button class="modal-btn danger" id="do-logout-all">Sign out everywhere</button>
+                </div>
+                <hr class="modal-split">
+                <p class="field-title">Delete account</p>
+                <p class="modal-note">Removes your account, your messages and your files for good. There is no
+                    recovery. If you own a server, delete it or hand it over first.</p>
+                <input type="password" id="acc-del-pw" placeholder="Password" maxlength="128"
+                    autocomplete="current-password" data-enter="do-delete-account">
+                <input type="text" id="acc-del-name" placeholder="Type your full name to confirm" maxlength="40"
+                    autocomplete="off" data-enter="do-delete-account">
+                <div class="modal-buttons">
+                    <button class="modal-btn danger" id="do-delete-account">Delete my account</button>
+                </div>
+                <div class="modal-buttons close-row">
+                    <button class="modal-btn cancel" data-close="account-modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="room-modal" class="modal">
+        <div class="modal-content">
+            <h3>Room settings</h3>
+            <div class="modal-body">
+                <p class="field-title">Topic</p>
+                <input type="text" id="room-topic" maxlength="200" placeholder="What is this room about?">
+                <div class="modal-buttons">
+                    <button class="modal-btn" id="do-save-topic">Save topic</button>
+                </div>
+                <div id="room-owner-only" class="modal-body flat">
+                    <hr class="modal-split">
+                    <p class="field-title">Who can write here</p>
+                    <select id="room-kind">
+                        <option value="0">Everyone</option>
+                        <option value="1">Only the server owner</option>
+                        <option value="4">Nobody: system room (join and leave notices)</option>
+                    </select>
+                    <p class="field-title">Delete messages automatically</p>
+                    <select id="room-retention">
+                        <option value="0">Never (the newest 512 are kept)</option>
+                        <option value="1">After 1 hour</option>
+                        <option value="24">After 24 hours</option>
+                        <option value="168">After 7 days</option>
+                    </select>
+                    <div class="modal-buttons">
+                        <button class="modal-btn secondary" id="do-save-room">Apply</button>
+                    </div>
+                </div>
+                <div class="modal-buttons close-row">
+                    <button class="modal-btn cancel" data-close="room-modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="invite-modal" class="modal">
+        <div class="modal-content">
+            <h3>Invite codes</h3>
+            <div class="modal-body">
+                <p class="modal-note">Anyone with a code can join (Join box). A code expires on its own, can be
+                    limited to a few uses and can be revoked here. The permanent server code is separate.</p>
+                <div class="two">
+                    <select id="inv-hours"><option value="1">Valid 1 hour</option><option value="24" selected>Valid 24 hours</option><option value="168">Valid 7 days</option></select>
+                    <select id="inv-uses"><option value="1">1 use</option><option value="10" selected>10 uses</option><option value="0">Unlimited</option></select>
+                </div>
+                <div class="modal-buttons">
+                    <button class="modal-btn" id="do-create-invite">Create code</button>
+                </div>
+                <div id="invite-list" class="plain-list"></div>
+                <div class="modal-buttons close-row">
+                    <button class="modal-btn cancel" data-close="invite-modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="members-modal" class="modal">
+        <div class="modal-content wide">
+            <h3>Members</h3>
+            <div class="modal-body">
+                <div id="members-list" class="plain-list"></div>
+                <div id="bans-box" class="hidden">
+                    <hr class="modal-split">
+                    <p class="field-title">Banned</p>
+                    <div id="bans-list" class="plain-list"></div>
+                </div>
+                <div class="modal-buttons close-row">
+                    <button class="modal-btn cancel" data-close="members-modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content">
+            <h3 id="confirm-title">Confirm action</h3>
+            <div class="modal-body">
+                <p id="confirm-message">Are you sure?</p>
+                <input type="text" id="confirm-input" class="hidden" autocomplete="off">
+                <div class="modal-buttons">
+                    <button class="modal-btn cancel" data-close="confirm-modal">Cancel</button>
+                    <button class="modal-btn" id="confirm-action">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/vendor/socket.io.min.js"></script>
+    <script src="/static/chat.js"></script>
+</body>
+
+</html>

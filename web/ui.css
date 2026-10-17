@@ -1,0 +1,71 @@
+/* Terminet.IRC shared look: a 3.5" disk. Indigo shell, paper label, yellow highlighter, silver shutter.
+   System fonts only (CSP font-src 'self', and every byte counts on a floppy). */
+:root {
+    color-scheme: dark;
+    --shell: #181a30;
+    --panel: #20233f;
+    --raised: #2b2f55;
+    --line: #3b4075;
+    --ink: #e6e9fb;
+    --dim: #98a0cf;
+    --label: #e9edf8;
+    --label-ink: #1b1e3b;
+    --label-rule: #c9d0e8;
+    --yellow: #ffd23f;
+    --yellow-deep: #a8800c;
+    --on-yellow: #1b1e3b;
+    --danger: #ff6f8e;
+    --danger-bg: #3a1d36;
+    --ok: #5fe0a8;
+    --silver-hi: #e6e9f5;
+    --silver-lo: #a2a9c6;
+    --sans: system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", Sarabun, Tahoma, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+html { background: var(--shell); }
+body { background: var(--shell); color: var(--ink); font: 14px/1.5 var(--sans); }
+.hidden { display: none !important; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+
+input, textarea {
+    font: inherit; color: var(--ink); background: var(--shell);
+    border: 1px solid var(--line); border-radius: 6px; padding: 9px 12px;
+}
+input::placeholder, textarea::placeholder { color: #6e76ab; }
+input:focus, textarea:focus { outline: none; border-color: var(--yellow); box-shadow: 0 0 0 3px rgba(255, 210, 63, .22); }
+
+/* keycap buttons: a flat face with a hard edge underneath; they press down */
+.key, .modal-btn, .send-btn, .file-download {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: 38px; padding: 0 16px; border-radius: 6px; font-weight: 600; text-decoration: none;
+    color: var(--on-yellow); background: var(--yellow);
+    border: 1px solid var(--yellow-deep); box-shadow: 0 2px 0 var(--yellow-deep);
+    transition: transform .06s, box-shadow .06s, filter .12s;
+}
+.key:hover, .modal-btn:hover, .send-btn:hover, .file-download:hover { filter: brightness(1.07); }
+.key:active, .modal-btn:active, .send-btn:active { transform: translateY(2px); box-shadow: 0 0 0 var(--yellow-deep); }
+.key.ghost, .modal-btn.cancel {
+    color: var(--ink); background: var(--raised); border-color: var(--line); box-shadow: 0 2px 0 #14162b;
+}
+.key.ghost:active, .modal-btn.cancel:active { box-shadow: 0 0 0 #14162b; }
+.key.small { min-height: 30px; padding: 0 11px; font-size: 13px; }
+button:disabled { opacity: .55; cursor: not-allowed; filter: none; transform: none; }
+.key:disabled, .send-btn:disabled, .modal-btn:disabled { color: var(--dim); background: var(--raised); border-color: var(--line); box-shadow: none; }
+
+/* the wordmark is a pixel-grid SVG used as a mask, so it takes any colour */
+.wordmark {
+    display: block; aspect-ratio: 67 / 7; background: currentColor;
+    -webkit-mask: url(/static/logo.svg) no-repeat left center / contain;
+    mask: url(/static/logo.svg) no-repeat left center / contain;
+}
+
+/* a nick keeps one colour everywhere (class picked from a hash of the name) */
+.nc0 { color: #7ab0ff; } .nc1 { color: #6fe3a8; } .nc2 { color: #ff8fa3; } .nc3 { color: #ffb36b; }
+.nc4 { color: #c79bff; } .nc5 { color: #5fe0e0; } .nc6 { color: #b8e86a; } .nc7 { color: #ff9ae0; }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+}

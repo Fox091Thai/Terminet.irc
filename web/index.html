@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Terminet IRC</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/ui.css">
+    <link rel="stylesheet" href="/static/login.css">
+</head>
+
+<body>
+    <main class="disk-wrap">
+        <div class="disk">
+            <div class="shutter"><span id="drive-title">A:\register</span><i class="slot"></i></div>
+            <div class="label">
+                <div class="wordmark" role="img" aria-label="Terminet.IRC"></div>
+                <div class="rule"></div>
+                <div class="byline">By Fox091Thai</div>
+                <div class="motto">"If it works, it's a miracle."</div>
+            </div>
+            <div class="auth-container">
+                <!-- Registration -->
+                <div id="register-form" class="auth-form">
+                    <h2>Create account</h2>
+                    <div id="register-success" class="success-message hidden">
+                        <div>Account created. Your name is <strong id="reg-tag"></strong></div>
+                        <div>Your login code:</div>
+                        <div class="unique-code" id="unique-code"></div>
+                        <div class="code-tools">
+                            <button type="button" class="key ghost small" id="btn-copy-code">Copy</button>
+                            <button type="button" class="key ghost small" id="btn-download-code">Download .txt</button>
+                            <span id="copy-status" role="status"></span>
+                        </div>
+                        <div class="warn">Save it now. You need it with your password to log in. There is no recovery, and the server cannot show it again.</div>
+                        <label class="ack"><input type="checkbox" id="saved-ack"> I have saved my login code</label>
+                    </div>
+                    <div id="register-error" class="error-message hidden"></div>
+                    <div id="register-fields">
+                        <div class="form-group">
+                            <label for="reg-username">Username</label>
+                            <input type="text" id="reg-username" maxlength="20" autocomplete="off" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="reg-password">Password (8+ characters)</label>
+                            <div class="pw-wrap">
+                                <input type="password" id="reg-password" minlength="8" maxlength="128" autocomplete="new-password" required>
+                                <button type="button" class="pw-toggle" data-for="reg-password" aria-pressed="false">Show</button>
+                            </div>
+                        </div>
+                        <button class="key" id="btn-register">Create account</button>
+                    </div>
+                    <button class="switch-btn" id="btn-to-login">Already have an account? Log in</button>
+                </div>
+
+                <!-- Login -->
+                <div id="login-form" class="auth-form hidden">
+                    <h2>Log in</h2>
+                    <div id="login-error" class="error-message hidden"></div>
+                    <div class="form-group">
+                        <label for="login-code">Login code</label>
+                        <input type="text" id="login-code" maxlength="20" autocomplete="username" spellcheck="false" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Password</label>
+                        <div class="pw-wrap">
+                            <input type="password" id="login-password" maxlength="128" autocomplete="current-password" required>
+                            <button type="button" class="pw-toggle" data-for="login-password" aria-pressed="false">Show</button>
+                        </div>
+                    </div>
+                    <button class="key" id="btn-login">Log in</button>
+                    <button class="switch-btn" id="btn-to-register">Need an account? Create one</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/static/login.js"></script>
+</body>
+
+</html>
