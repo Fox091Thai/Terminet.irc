@@ -1,0 +1,67 @@
+/* CLI theme: no panes, no buttons, no dialogs. A log and a prompt; everything is a typed command (/help).
+   The first block is for every theme: the terminal pieces stay hidden unless a theme or a question needs them. */
+.tty, #cli-prompt, #cli-secret { display: none; }
+.input-container.asking .message-input { display: none; }
+.input-container.asking #cli-prompt { display: block; flex: none; align-self: center; white-space: pre; color: var(--dim); }
+.input-container.asking #cli-secret { display: block; flex: 1; min-width: 0; height: 40px; }
+
+html[data-theme="cli"] {
+    color-scheme: dark;
+    --shell: #0b0d0b; --panel: #0b0d0b; --raised: #161a16; --line: #2c342c; --ink: #d3dad3; --dim: #8a978a;
+    --label: #d3dad3; --label-ink: #0b0d0b; --label-rule: #2c342c;
+    --yellow: #7ee787; --yellow-deep: #3fb950; --on-yellow: #0b0d0b;
+    --danger: #ff7b72; --danger-bg: #2a1414; --ok: #7ee787;
+    --sans: var(--mono);
+}
+html[data-theme="cli"] *, html[data-theme="cli"] ::before, html[data-theme="cli"] ::after { border-radius: 0 !important; }
+html[data-theme="cli"] input::placeholder, html[data-theme="cli"] textarea::placeholder { color: var(--dim); }
+html[data-theme="cli"] .nc0 { color: #79c0ff; } html[data-theme="cli"] .nc1 { color: #7ee787; } html[data-theme="cli"] .nc2 { color: #ff7b72; } html[data-theme="cli"] .nc3 { color: #e3b341; }
+html[data-theme="cli"] .nc4 { color: #d2a8ff; } html[data-theme="cli"] .nc5 { color: #56d4dd; } html[data-theme="cli"] .nc6 { color: #a5d6a7; } html[data-theme="cli"] .nc7 { color: #ffa6e1; }
+
+/* the chat screen: a status line, the log, the prompt */
+html[data-theme="cli"] .sidebar, html[data-theme="cli"] .users-panel, html[data-theme="cli"] .welcome-screen, html[data-theme="cli"] .scrim, html[data-theme="cli"] .header-actions, html[data-theme="cli"] .only-narrow, html[data-theme="cli"] .msg-tools { display: none !important; }
+html[data-theme="cli"] body { display: flex; flex-direction: column; font: 14px/1.45 var(--mono); }
+html[data-theme="cli"] .main-content { width: 100%; }
+html[data-theme="cli"] #chat-container.hidden { display: flex !important; }
+html[data-theme="cli"] .chat-header { height: auto; padding: 3px 12px; background: var(--raised); border-bottom: 1px solid var(--line); }
+html[data-theme="cli"] #chat-title { color: var(--yellow); font-size: 14px; }
+html[data-theme="cli"] .title-box::before { content: "terminet.irc \00b7"; color: var(--dim); font-size: 13px; }
+html[data-theme="cli"] .topic { font-size: 13px; }
+html[data-theme="cli"] .chat-messages { padding: 8px 0; font-size: 14px; line-height: 1.45; }
+html[data-theme="cli"] .chat-messages:empty::before { content: "type /help"; padding: 4px 12px; font-family: var(--mono); }
+html[data-theme="cli"] .message { padding: 0 12px; }
+html[data-theme="cli"] .message:hover { background: none; }
+html[data-theme="cli"] .message[data-sid]::before { content: "#" attr(data-sid) " "; color: var(--dim); font-size: 12px; }
+html[data-theme="cli"] .message .timestamp::before { content: "["; }
+html[data-theme="cli"] .message .timestamp::after { content: "]"; }
+html[data-theme="cli"] .message.mine { box-shadow: none; }
+html[data-theme="cli"] .message.system { padding-left: 12px; border-left: 0; }
+html[data-theme="cli"] .message.system em::before { content: "*** "; }
+html[data-theme="cli"] .message.mention, html[data-theme="cli"] .message.mention:hover { background: var(--raised); box-shadow: none; }
+html[data-theme="cli"] .day-sep { margin: 6px 12px 2px; font-weight: 400; }
+html[data-theme="cli"] .file-card { background: none; color: var(--ink); border: 1px dashed var(--line); padding: 2px 8px; }
+html[data-theme="cli"] .file-card .fname { display: inline; margin: 0 8px 0 0; font-family: var(--mono); }
+html[data-theme="cli"] .file-card .text-preview { background: none; color: var(--dim); max-height: 120px; line-height: 1.45; }
+html[data-theme="cli"] .file-card .file-download, html[data-theme="cli"] .file-download { background: none; color: var(--yellow); border: 0; min-height: 0; padding: 0; text-decoration: underline; font-weight: 400; }
+html[data-theme="cli"] .reply-bar { padding: 2px 12px; background: none; border-top: 0; }
+html[data-theme="cli"] .jump-new { border-color: var(--yellow); }
+
+html[data-theme="cli"] .input-container { align-items: flex-start; gap: 0; padding: 6px 12px 10px; background: none; border-top: 1px solid var(--line); }
+html[data-theme="cli"] .input-container .key, html[data-theme="cli"] .input-container .send-btn, html[data-theme="cli"] .input-container .upload-btn { display: none; }
+html[data-theme="cli"] #cli-prompt { display: block; flex: none; line-height: 20px; white-space: pre; color: var(--yellow); }
+html[data-theme="cli"] .message-input { min-height: 20px; padding: 0; font: inherit; line-height: 20px; color: var(--ink); background: none; border: 0; box-shadow: none; caret-color: var(--yellow); }
+html[data-theme="cli"] .input-container.asking #cli-prompt { align-self: flex-start; }
+html[data-theme="cli"] .input-container.asking #cli-secret { height: 20px; padding: 0; font: inherit; line-height: 20px; color: var(--ink); background: none; border: 0; box-shadow: none; caret-color: var(--yellow); }
+html[data-theme="cli"] .upload-progress, html[data-theme="cli"] .notification { background: var(--raised); border-color: var(--line); box-shadow: none; }
+
+/* sign-in: the same prompt, full screen */
+html[data-theme="cli"] .disk-wrap, html[data-theme="cli"] .theme-pick { display: none; }
+html[data-theme="cli"] body { min-height: 100dvh; padding: 0; background: var(--shell); }
+html[data-theme="cli"] .tty { display: flex; flex-direction: column; width: 100%; height: 100dvh; padding: 12px 14px; font: 14px/1.45 var(--mono); }
+html[data-theme="cli"] .tty-log { flex: 1; min-height: 0; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+html[data-theme="cli"] .tty-row.echo { color: var(--dim); }
+html[data-theme="cli"] .tty-row.err { color: var(--danger); }
+html[data-theme="cli"] .tty-row.code { color: var(--yellow); font-weight: 700; letter-spacing: .1em; }
+html[data-theme="cli"] .tty-line { display: flex; align-items: baseline; }
+html[data-theme="cli"] #tty-prompt { flex: none; white-space: pre; color: var(--yellow); }
+html[data-theme="cli"] .tty-line input { flex: 1; min-width: 0; padding: 0; font: inherit; color: var(--ink); background: none; border: 0; box-shadow: none; outline: none; caret-color: var(--yellow); }

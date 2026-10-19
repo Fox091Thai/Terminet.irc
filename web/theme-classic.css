@@ -1,0 +1,135 @@
+/* Classic theme: the old amber-on-black terminal look, calmer. No overlays, no glow, no blinking, nothing that moves.
+   Everything is scoped to html[data-theme="classic"], so Modern and CLI never see it. Colours are tokens first. */
+html[data-theme="classic"] {
+    --shell: #15120e; --panel: #1c1813; --raised: #262017; --line: #7a6443; --line-hi: #a68455;
+    --ink: #ecd6b4; --dim: #a38b69; --label: #ecd6b4; --label-ink: #2a1d0a; --label-rule: #cdb48a;
+    --yellow: #e5ae73; --yellow-deep: #b98547; --on-yellow: #17120b; --tan-hi: #f2c48a;
+    --danger: #e08a78; --danger-bg: #33191a; --ok: #9fcf7a; --warn-bg: #2d2312;
+    --sans: var(--mono);
+}
+html[data-theme="classic"] *, html[data-theme="classic"] ::before, html[data-theme="classic"] ::after { border-radius: 0 !important; }
+html[data-theme="classic"] input::placeholder, html[data-theme="classic"] textarea::placeholder { color: var(--dim); }
+html[data-theme="classic"] input, html[data-theme="classic"] textarea, html[data-theme="classic"] .modal-body select { border-color: var(--line-hi); }
+html[data-theme="classic"] input:focus, html[data-theme="classic"] textarea:focus { border-color: var(--yellow); box-shadow: none; }
+html[data-theme="classic"] .nc0 { color: #6cc3d5; } html[data-theme="classic"] .nc1 { color: #9fdc6a; } html[data-theme="classic"] .nc2 { color: #e8907c; } html[data-theme="classic"] .nc3 { color: #e8c36a; }
+html[data-theme="classic"] .nc4 { color: #b79ce8; } html[data-theme="classic"] .nc5 { color: #e5ae73; } html[data-theme="classic"] .nc6 { color: #7fd0ac; } html[data-theme="classic"] .nc7 { color: #dc8fb8; }
+
+/* buttons: solid tan only for the main action; everything else is an outline in brackets that fills on hover */
+html[data-theme="classic"] .key, html[data-theme="classic"] .modal-btn, html[data-theme="classic"] .send-btn, html[data-theme="classic"] .file-download {
+    background: var(--yellow); border: 1px solid var(--yellow); color: var(--on-yellow); box-shadow: none; font-weight: 700; transition: none;
+}
+html[data-theme="classic"] .key:hover, html[data-theme="classic"] .modal-btn:hover, html[data-theme="classic"] .send-btn:hover, html[data-theme="classic"] .file-download:hover { background: var(--tan-hi); border-color: var(--tan-hi); filter: none; }
+html[data-theme="classic"] .key:active, html[data-theme="classic"] .modal-btn:active, html[data-theme="classic"] .send-btn:active, html[data-theme="classic"] .file-download:active { background: var(--yellow-deep); border-color: var(--yellow-deep); transform: none; box-shadow: none; }
+html[data-theme="classic"] .key.ghost, html[data-theme="classic"] .modal-btn.cancel, html[data-theme="classic"] .modal-btn.secondary, html[data-theme="classic"] .header-btn, html[data-theme="classic"] .action-btn {
+    background: transparent; border: 1px solid var(--line-hi); color: var(--yellow); box-shadow: none; font-weight: 400;
+}
+html[data-theme="classic"] .key.ghost:hover, html[data-theme="classic"] .modal-btn.cancel:hover, html[data-theme="classic"] .modal-btn.secondary:hover, html[data-theme="classic"] .header-btn:hover, html[data-theme="classic"] .action-btn:hover {
+    background: var(--yellow); border-color: var(--yellow); color: var(--on-yellow); filter: none;
+}
+html[data-theme="classic"] .key.ghost:active, html[data-theme="classic"] .modal-btn.cancel:active, html[data-theme="classic"] .modal-btn.secondary:active, html[data-theme="classic"] .header-btn:active { background: var(--yellow-deep); transform: none; }
+html[data-theme="classic"] .key.ghost::before, html[data-theme="classic"] .header-btn::before, html[data-theme="classic"] .modal-btn.cancel::before, html[data-theme="classic"] .modal-btn.secondary::before { content: "[ "; white-space: pre; }
+html[data-theme="classic"] .key.ghost::after, html[data-theme="classic"] .header-btn::after, html[data-theme="classic"] .modal-btn.cancel::after, html[data-theme="classic"] .modal-btn.secondary::after { content: " ]"; white-space: pre; }
+html[data-theme="classic"] .side-foot .key.ghost::before, html[data-theme="classic"] .side-tools .key.ghost::before { content: "["; }
+html[data-theme="classic"] .side-foot .key.ghost::after, html[data-theme="classic"] .side-tools .key.ghost::after { content: "]"; }
+html[data-theme="classic"] .key.ghost, html[data-theme="classic"] .header-btn, html[data-theme="classic"] .modal-btn.cancel, html[data-theme="classic"] .modal-btn.secondary { gap: 0; }
+html[data-theme="classic"] .key.ghost[aria-pressed="true"] { color: var(--tan-hi); border-color: var(--yellow); }
+html[data-theme="classic"] .key.ghost[aria-pressed="true"]:hover { color: var(--on-yellow); }
+html[data-theme="classic"] .key:disabled, html[data-theme="classic"] .send-btn:disabled, html[data-theme="classic"] .modal-btn:disabled { color: var(--dim); background: var(--raised); border-color: var(--line); }
+html[data-theme="classic"] .modal-btn.danger, html[data-theme="classic"] .header-btn.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+html[data-theme="classic"] .modal-btn.danger:hover, html[data-theme="classic"] .header-btn.danger:hover { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+html[data-theme="classic"] .action-btn.delete:hover, html[data-theme="classic"] .action-btn.leave:hover { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+html[data-theme="classic"] .send-btn, html[data-theme="classic"] .auth-form .key { text-transform: uppercase; letter-spacing: 1px; }
+
+/* sign-in: a boxed form under an ASCII logo, like the first Terminet */
+html[data-theme="classic"] body { background: var(--shell); }
+html[data-theme="classic"] .disk-wrap { width: min(520px, 100%); filter: none; }
+html[data-theme="classic"] .disk { clip-path: none; background: none; padding: 0; }
+html[data-theme="classic"] .shutter, html[data-theme="classic"] .label .wordmark, html[data-theme="classic"] .label .rule { display: none; }
+html[data-theme="classic"] .label { margin: 0 0 22px; padding: 0; background: none; color: var(--ink); text-align: center; }
+html[data-theme="classic"] .ascii { display: block; width: fit-content; max-width: 100%; margin: 0 auto 14px; overflow: hidden; text-align: left; white-space: pre; color: var(--yellow); font: min(13px, 2.3vw) / 1.1 var(--mono); }
+html[data-theme="classic"] .label .byline { color: var(--yellow); font-style: italic; letter-spacing: 3px; }
+html[data-theme="classic"] .label .motto { margin-top: 4px; color: var(--dim); font-size: 14px; }
+html[data-theme="classic"] .auth-container { padding: 28px; background: var(--shell); border: 2px solid var(--line-hi); }
+html[data-theme="classic"] .auth-form h2 { margin-bottom: 20px; color: var(--yellow); font-size: 22px; font-weight: 700; letter-spacing: 2px; text-align: center; text-transform: uppercase; }
+html[data-theme="classic"] .form-group label { color: var(--yellow); }
+html[data-theme="classic"] .switch-btn { border: 1px solid var(--line-hi); background: none; color: var(--yellow); }
+html[data-theme="classic"] .switch-btn:hover { background: var(--yellow); color: var(--on-yellow); }
+html[data-theme="classic"] .switch-btn:disabled { background: none; color: var(--dim); border-color: var(--line); }
+html[data-theme="classic"] .error-message { color: var(--ink); }
+html[data-theme="classic"] .success-message > div:first-child { color: var(--yellow); }
+html[data-theme="classic"] .unique-code { color: var(--tan-hi); background: var(--panel); border: 2px dashed var(--yellow); letter-spacing: .2em; }
+html[data-theme="classic"] .success-message .warn { background: var(--warn-bg); border-left-color: var(--yellow); }
+html[data-theme="classic"] .pw-toggle { color: var(--yellow); }
+html[data-theme="classic"] .pw-toggle:hover { color: var(--ink); }
+
+/* chat: boxed panels, solid tan title bars */
+html[data-theme="classic"] .sidebar { background: var(--shell); border-right: 2px solid var(--line-hi); }
+html[data-theme="classic"] .brand { padding: 14px 12px 10px; text-align: center; border-bottom: 1px solid var(--line); }
+html[data-theme="classic"] .brand .wordmark { display: none; }
+html[data-theme="classic"] .brand::before { content: "TERMINET"; display: block; font: italic 700 20px/1.3 var(--mono); letter-spacing: 3px; }
+html[data-theme="classic"] .tagline { margin-top: 2px; }
+html[data-theme="classic"] .user-info { justify-content: center; margin: 0; padding: 10px 12px; text-align: center; background: none; border: 0; border-bottom: 1px solid var(--line); }
+html[data-theme="classic"] .avatar { display: none; }
+html[data-theme="classic"] .who { justify-items: center; }
+html[data-theme="classic"] .side-head { display: grid; grid-template-columns: 1fr; gap: 8px; padding: 12px 0 8px; }
+html[data-theme="classic"] .side-head > span:first-child, html[data-theme="classic"] .users-header { height: 32px; background: var(--yellow); color: var(--on-yellow); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+html[data-theme="classic"] .side-head > span:first-child { display: block; line-height: 32px; text-align: center; }
+html[data-theme="classic"] .side-tools { display: flex; padding: 0 10px; }
+html[data-theme="classic"] .side-tools .key { flex: 1; }
+html[data-theme="classic"] .server-item { background: var(--panel); border: 1px solid var(--line); margin-bottom: 8px; }
+html[data-theme="classic"] .server-item:hover { background: var(--raised); }
+html[data-theme="classic"] .server-item.active { background: var(--panel); border-color: var(--line-hi); box-shadow: none; }
+html[data-theme="classic"] .server-item strong { color: var(--yellow); }
+html[data-theme="classic"] .rooms-label { letter-spacing: 1px; text-transform: uppercase; }
+html[data-theme="classic"] .room-item:hover { background: var(--raised); }
+html[data-theme="classic"] .room-item.active { background: var(--yellow); color: var(--on-yellow); font-weight: 700; }
+html[data-theme="classic"] .room-item.active .rbadge, html[data-theme="classic"] .room-item.active .action-btn { color: var(--on-yellow); border-color: var(--on-yellow); background: none; }
+html[data-theme="classic"] .room-item.active .action-btn:hover { background: var(--on-yellow); color: var(--yellow); }
+html[data-theme="classic"] .rbadge { border-color: var(--line-hi); }
+html[data-theme="classic"] .ubadge, html[data-theme="classic"] .jump-new { background: var(--yellow); border-color: var(--yellow); color: var(--on-yellow); box-shadow: none; }
+html[data-theme="classic"] .side-foot { border-top: 1px solid var(--line); }
+html[data-theme="classic"] .foot-row { flex-wrap: wrap; }
+html[data-theme="classic"] .foot-row .key { flex: 1 1 0; min-width: min-content; padding: 0 6px; white-space: nowrap; }
+html[data-theme="classic"] .connection-status.connected .led { box-shadow: none; }
+html[data-theme="classic"] .connection-status.connecting .led { animation: none; }
+
+html[data-theme="classic"] .chat-header { background: none; border-bottom: 1px solid var(--line-hi); }
+html[data-theme="classic"] .header-btn { align-items: center; justify-content: center; }
+@media (min-width: 721px) {
+    html[data-theme="classic"] .chat-header { height: auto; min-height: 56px; padding: 8px 20px; flex-wrap: wrap; row-gap: 6px; }
+    html[data-theme="classic"] .title-box { flex: 1 1 220px; }
+    html[data-theme="classic"] .header-actions, html[data-theme="classic"] #server-actions { flex-wrap: wrap; row-gap: 6px; }
+    html[data-theme="classic"] .header-btn { padding: 0 8px; font-size: 12px; }
+}
+html[data-theme="classic"] #chat-title { color: var(--yellow); }
+html[data-theme="classic"] .message:hover { background: none; }
+html[data-theme="classic"] .message .timestamp::before { content: "["; }
+html[data-theme="classic"] .message .timestamp::after { content: "]"; }
+html[data-theme="classic"] .message.mine { box-shadow: none; }
+html[data-theme="classic"] .message.system { padding-left: 20px; border-left: 0; font-style: italic; }
+html[data-theme="classic"] .message.system em::before { content: "*** "; }
+html[data-theme="classic"] .message.mention, html[data-theme="classic"] .message.mention:hover { background: var(--panel); box-shadow: inset 2px 0 0 var(--yellow); }
+html[data-theme="classic"] .msg-link { color: var(--tan-hi); }
+html[data-theme="classic"] .msg-link:hover { color: var(--ink); }
+html[data-theme="classic"] .file-card { border: 1px solid var(--line-hi); }
+html[data-theme="classic"] .file-card .file-download { background: var(--label-ink); border-color: var(--label-ink); color: var(--label); }
+html[data-theme="classic"] .input-container { background: none; border-top: 1px solid var(--line-hi); }
+html[data-theme="classic"] #cli-prompt { display: block; flex: none; align-self: center; font-size: 0; font-weight: 700; color: var(--yellow); }
+html[data-theme="classic"] #cli-prompt::before { content: ">"; font-size: 14px; }
+html[data-theme="classic"] .input-container.asking #cli-prompt { font-size: 14px; }
+html[data-theme="classic"] .input-container.asking #cli-prompt::before { content: none; }
+html[data-theme="classic"] .users-panel { background: none; border-left: 2px solid var(--line-hi); }
+html[data-theme="classic"] .users-header { justify-content: center; gap: 8px; padding: 0; }
+html[data-theme="classic"] .users-header .count { color: var(--on-yellow); background: none; border-color: var(--on-yellow); }
+html[data-theme="classic"] .user-item:hover { background: var(--raised); }
+html[data-theme="classic"] .welcome-card { background: var(--shell); border: 2px solid var(--line-hi); box-shadow: none; }
+
+html[data-theme="classic"] .modal { background: rgba(8, 6, 4, .82); backdrop-filter: none; }
+html[data-theme="classic"] .modal-content { background: var(--shell); border: 2px solid var(--line-hi); box-shadow: none; }
+html[data-theme="classic"] .modal-content h3 { padding: 8px 16px; background: var(--yellow); color: var(--on-yellow); letter-spacing: 1px; text-align: center; text-transform: uppercase; }
+html[data-theme="classic"] .modal-content h3::after { content: none; }
+html[data-theme="classic"] .notification, html[data-theme="classic"] .upload-progress { background: var(--panel); border-color: var(--line-hi); box-shadow: none; }
+html[data-theme="classic"] .chat-container.dragging::after { background: rgba(21, 18, 14, .9); border-color: var(--yellow); }
+@media (max-width: 720px) {
+    html[data-theme="classic"] .message-input::placeholder { font-size: 13px; }
+}

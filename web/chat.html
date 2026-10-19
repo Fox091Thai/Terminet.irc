@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="modern">
 
 <head>
     <meta charset="UTF-8">
@@ -7,8 +7,11 @@
     <meta name="color-scheme" content="dark">
     <title>Terminet IRC - Chat</title>
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <script src="/static/theme.js"></script>
     <link rel="stylesheet" href="/static/ui.css">
     <link rel="stylesheet" href="/static/chat.css">
+    <link rel="stylesheet" href="/static/theme-classic.css">
+    <link rel="stylesheet" href="/static/theme-cli.css">
 </head>
 
 <body>
@@ -59,6 +62,11 @@
                 <button class="key ghost small" id="btn-sound" aria-pressed="true" title="Beep when a room you are not looking at gets a message">Sound on</button>
                 <button class="key ghost small hidden" id="btn-notify" aria-pressed="false" title="Desktop alerts say which room has news, never what was written">Alerts off</button>
             </div>
+            <div class="foot-row theme-pick" role="group" aria-label="Theme">
+                <button class="key ghost small" data-theme-set="modern">Modern</button>
+                <button class="key ghost small" data-theme-set="classic">Classic</button>
+                <button class="key ghost small" data-theme-set="cli">CLI</button>
+            </div>
             <div class="connection-status connecting" id="connection-status">
                 <i class="led"></i><span id="status-text">Connecting...</span>
             </div>
@@ -104,8 +112,10 @@
             </div>
             <div class="input-container">
                 <button class="key ghost upload-btn" id="btn-upload" title="Attach a file">Attach</button>
+                <span id="cli-prompt" aria-hidden="true"></span>
                 <textarea id="message-input" class="message-input" placeholder="Message, or /help"
                     maxlength="1000" rows="1"></textarea>
+                <input id="cli-secret" type="password" maxlength="128" autocomplete="off" aria-label="Answer">
                 <button class="send-btn" id="btn-send">Send</button>
                 <input type="file" id="file-input" class="file-input" multiple>
             </div>
@@ -301,6 +311,7 @@
 
     <script src="/static/vendor/socket.io.min.js"></script>
     <script src="/static/chat.js"></script>
+    <script src="/static/cli.js"></script>
 </body>
 
 </html>

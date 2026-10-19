@@ -1,5 +1,5 @@
 body {
-    min-height: 100vh; display: grid; place-items: center; padding: 28px 16px;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 28px 16px;
     background: radial-gradient(circle at 1px 1px, rgba(152, 160, 207, .16) 1px, transparent 0) 0 0 / 16px 16px, var(--shell);
 }
 
@@ -70,3 +70,5 @@ body {
     .shutter { width: 78%; }
     .unique-code { font-size: 18px; }
 }
+
+.ascii { display: none; }

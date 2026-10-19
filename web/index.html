@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="modern">
 
 <head>
     <meta charset="UTF-8">
@@ -7,8 +7,11 @@
     <meta name="color-scheme" content="dark">
     <title>Terminet IRC</title>
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <script src="/static/theme.js"></script>
     <link rel="stylesheet" href="/static/ui.css">
     <link rel="stylesheet" href="/static/login.css">
+    <link rel="stylesheet" href="/static/theme-classic.css">
+    <link rel="stylesheet" href="/static/theme-cli.css">
 </head>
 
 <body>
@@ -16,6 +19,12 @@
         <div class="disk">
             <div class="shutter"><span id="drive-title">A:\register</span><i class="slot"></i></div>
             <div class="label">
+                <pre class="ascii" aria-hidden="true"> _____ _____ ____  __  __ ___ _   _ _____ _____ ___ ____   ____
+|_   _| ____|  _ \|  \/  |_ _| \ | | ____|_   _|_ _|  _ \ / ___|
+  | | |  _| | |_) | |\/| || ||  \| |  _|   | |  | || |_) | |
+  | | | |___|  _ &lt;| |  | || || |\  | |___  | |_ | ||  _ &lt;| |___
+  |_| |_____|_| \_\_|  |_|___|_| \_|_____| |_(_)___|_| \_\\____|
+</pre>
                 <div class="wordmark" role="img" aria-label="Terminet.IRC"></div>
                 <div class="rule"></div>
                 <div class="byline">By Fox091Thai</div>
@@ -77,7 +86,20 @@
         </div>
     </main>
 
+    <nav class="theme-pick" aria-label="Theme">
+        <span>Theme</span>
+        <button type="button" class="key ghost small" data-theme-set="modern">Modern</button>
+        <button type="button" class="key ghost small" data-theme-set="classic">Classic</button>
+        <button type="button" class="key ghost small" data-theme-set="cli">CLI</button>
+    </nav>
+
+    <section class="tty" id="tty" aria-label="Terminal">
+        <div class="tty-log" id="tty-log" aria-live="polite"></div>
+        <label class="tty-line"><span id="tty-prompt">guest&gt;</span><input id="tty-in" maxlength="128" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Command"></label>
+    </section>
+
     <script src="/static/login.js"></script>
+    <script src="/static/cli-login.js"></script>
 </body>
 
 </html>

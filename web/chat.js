@@ -26,7 +26,10 @@
     let mentionRe = null;
     let stickBottom = true;        // is the log scrolled to (nearly) the end?
     let uploading = Promise.resolve();
+    let canWrite = false;          // may this person type a message in the open room right now?
+    let inputHint = '';
     const BASE_TITLE = document.title;
+    const cli = () => document.documentElement.dataset.theme === 'cli';
     const unread = new Map();      // room id -> {server, n}; lives in this tab only (plan M3, option A)
     const roomNames = new Map();   // room id -> name, for the open server
     const serverNames = new Map(); // server id -> name
@@ -162,6 +165,7 @@
     function noteIncoming(roomId, serverId) { bump(roomId, serverId); beep(); desktopAlert(roomId, serverId); }
 
     function notify(message, type = 'success') {
+        if (cli()) return localNotice((type === 'error' ? 'error: ' : '') + String(message));
         const old = document.querySelector('.notification');
         if (old) old.remove();
         const n = h('div', { class: 'notification ' + (type === 'error' ? 'error' : 'success'), text: String(message) });
@@ -182,7 +186,9 @@
         } catch (e) { mentionRe = null; }              // an old browser without look-behind: no highlight, no harm
     }
 
+    const ping = () => document.dispatchEvent(new Event('tn:state'));
     function paintMe() {
+        ping();
         buildMention();
         $('current-username').replaceChildren(...nameNodes(me.username));
         $('current-avatar').className = 'avatar ' + nickClass(me.username);
@@ -393,7 +399,7 @@
 
         const row = h('div', { class: 'message ' + type + (mine ? ' mine' : '') + (action ? ' action' : '') });
         row.dataset.day = day;
-        if (m.id) row.dataset.mid = String(m.id);
+        if (m.id) { row.dataset.mid = String(m.id); row.dataset.sid = String(m.id).slice(0, 6); }   // sid: the short name the CLI theme shows
         if (type !== 'system') row.dataset.uid = String(m.user_id);
         if (m.reply_to && type === 'user') {                   // M2: the line this one answers, quoted above it
             const q = h('div', { class: 'quote', 'data-reply': String(m.reply_to) });
@@ -532,6 +538,7 @@
     }
     function showWelcome() {
         currentServer = null; currentRoomId = null;
+        ping();
         setReply(null);
         $('welcome-screen').classList.remove('hidden');
         $('chat-container').classList.add('hidden');
@@ -543,7 +550,9 @@
 
     function updateInput(enabled, placeholder) {
         const input = $('message-input');
-        input.disabled = !enabled;
+        canWrite = enabled;
+        inputHint = placeholder;
+        input.disabled = !enabled && !cli();          // the CLI prompt stays live: commands work without a room
         input.placeholder = placeholder || 'Message, or /help';
         for (const b of [$('btn-send'), $('btn-upload')]) b.disabled = !enabled;
     }
@@ -558,6 +567,7 @@
 
     const headBtn = (text, fn, cls = '') => h('button', { class: 'header-btn ' + cls, text, onclick: fn });
     function renderServerActions() {
+        ping();
         const box = $('server-actions');
         box.replaceChildren();
         if (!currentServer) return;
@@ -764,6 +774,7 @@
     function initSocket() {
         setStatus('connecting');
         socket = io({ transports: ['websocket', 'polling'], reconnectionDelay: 2000, reconnectionDelayMax: 15000 });
+        document.dispatchEvent(new Event('tn:socket'));
 
         socket.on('connect', () => {
             setStatus('connected');
@@ -955,7 +966,7 @@
         const [cmd, ...rest] = text.split(/\s+/);
         const arg = rest.join(' ').trim();
         switch (cmd.toLowerCase()) {
-            case '/help': localNotice(helpText()); return true;
+            case '/help': localNotice(helpText() + (TN.help.length ? '\n\n' + TN.help.join('\n') : '')); return true;
             case '/nick':
                 if (arg) socket.emit('change_nickname', { new_nick: plainName(arg) });
                 else notify('Usage: /nick <new_nickname>', 'error');
@@ -973,16 +984,24 @@
                 if (!isOwner()) notify('Only the server owner can do that.', 'error');
                 else socket.emit('rotate_code', { server_id: currentServer.id });
                 return true;
-            default: return false;           // unknown /command: send as a normal message
+            default: {
+                const run = TN.cmds[cmd.toLowerCase()];
+                if (!run) return false;      // unknown /command: send as a normal message
+                run(arg);
+                return true;
+            }
         }
     }
 
     function sendMessage() {
         const input = $('message-input');
         const text = input.value.trim();
-        if (!text || !currentRoomId) return;
-        if (!socket.connected) return notify('Not connected to server', 'error');
-        if (!(text.startsWith('/') && handleCommand(text))) {
+        if (!text) return;
+        if (!socket.connected && !/^\/(help|clear|theme)(\s|$)/i.test(text)) return notify('Not connected to server', 'error');
+        if (text.startsWith('/') && handleCommand(text)) { /* a command, done */ }
+        else if (!currentRoomId) return notify('No room open. Try /servers or /help.', 'error');
+        else if (!canWrite) return notify(inputHint || 'You cannot write in this room.', 'error');
+        else {
             socket.emit('send_message', replyTo ? { message: text, reply_to: replyTo.id } : { message: text });
             setReply(null);
         }
@@ -1110,6 +1129,21 @@
         $('header-actions').classList.toggle('open', open);
         $('btn-more').setAttribute('aria-expanded', String(open));
     }
+
+    /* ------------------------------ what cli.js (extra slash commands, the CLI theme) is allowed to touch */
+    const TN = window.TN = {
+        cmds: {}, help: [],
+        get socket() { return socket; },
+        get state() { return { me, server: currentServer, roomId: currentRoomId, users: lastUsers, canWrite }; },
+        notice: localNotice, notify, post: postJson, logout, plain: plainName,
+        reply(id) {
+            const o = msgIndex.get(String(id));
+            if (o) setReply({ id: String(id), name: o.name, text: o.text });
+            return !!o;
+        },
+        upload: () => $('btn-upload').click(),
+    };
+    document.addEventListener('tn:theme', () => updateInput(canWrite, inputHint));
 
     /* ---------------------------------------------------------------- init */
     function bind() {

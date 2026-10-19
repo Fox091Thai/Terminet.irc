@@ -66,6 +66,10 @@ button:disabled { opacity: .55; cursor: not-allowed; filter: none; transform: no
 .nc0 { color: #7ab0ff; } .nc1 { color: #6fe3a8; } .nc2 { color: #ff8fa3; } .nc3 { color: #ffb36b; }
 .nc4 { color: #c79bff; } .nc5 { color: #5fe0e0; } .nc6 { color: #b8e86a; } .nc7 { color: #ff9ae0; }
 
+/* theme picker (sign-in page and the chat sidebar) */
+.theme-pick { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--dim); font-size: 12px; }
+.theme-pick .key[aria-pressed="true"] { color: var(--yellow); border-color: var(--yellow-deep); }
+
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
 }
